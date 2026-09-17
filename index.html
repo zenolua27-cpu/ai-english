@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1d24">
+<title>AI 英语陪练 · card_01a</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;font-family:-apple-system,"PingFang SC",sans-serif}
+  body{background:#1a1d24;color:#fff;display:flex;flex-direction:column;user-select:none}
+  #image-area{flex:1;position:relative;background:linear-gradient(180deg,#ffe9c8 0%,#ffd6a5 60%,#f8b878 100%);display:flex;align-items:center;justify-content:center;overflow:hidden}
+  #scene{font-size:42vmin;line-height:1;filter:drop-shadow(0 8px 16px rgba(0,0,0,.15))}
+  #scene.enter{animation:pop .5s ease}
+  @keyframes pop{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}
+  .corner{position:absolute;font-size:8vmin;opacity:.85}
+  .corner.tl{top:4%;left:6%}.corner.tr{top:4%;right:6%}
+  #subtitle-area{background:#232733;padding:14px 18px 6px;min-height:84px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+  #subtitle{font-size:22px;font-weight:600;line-height:1.35;color:#eaf2ff;min-height:30px}
+  #hint{font-size:15px;color:#9aa4b8;font-weight:500;min-height:20px}
+  #controls{background:#232733;padding:8px 18px 14px;display:flex;flex-direction:column;gap:10px;align-items:center;position:relative}
+  #mic-row{display:flex;gap:14px;align-items:center;justify-content:center}
+  #mic-btn{width:88px;height:88px;border-radius:50%;border:none;background:#3a4050;color:#6b7280;font-size:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+  #mic-btn:disabled{opacity:.5;cursor:not-allowed}
+  #mic-btn.listening{background:#10b981;color:#fff;animation:pulse 1.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.7),0 4px 16px rgba(0,0,0,.3)}70%{box-shadow:0 0 0 22px rgba(16,185,129,0),0 4px 16px rgba(0,0,0,.3)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0),0 4px 16px rgba(0,0,0,.3)}}
+  #mic-btn.recording{background:#ef4444;color:#fff;animation:none}
+  .small-btn{padding:8px 14px;border-radius:999px;border:none;background:#3a4050;color:#c0c8d8;font-size:13px;font-weight:600;cursor:pointer}
+  .small-btn:active{background:#4a5060}
+  #text-input-row{display:none;gap:8px;width:100%;max-width:420px}
+  #text-input-row.show{display:flex}
+  #text-input{flex:1;padding:12px 16px;border-radius:12px;border:none;background:#181c26;color:#fff;font-size:16px;outline:none}
+  #text-submit{padding:12px 20px;border-radius:12px;border:none;background:#10b981;color:#fff;font-weight:700;font-size:14px}
+  #round-indicator{position:absolute;top:10px;right:18px;font-size:12px;color:#6b7280;font-weight:600;letter-spacing:1px}
+  #debug-bar{background:#0f1117;color:#6b7280;font-size:11px;padding:6px 12px;font-family:monospace;line-height:1.5;max-height:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-top:1px solid #232733}
+  #start-overlay{position:fixed;inset:0;background:#0f1117;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:100;padding:24px;text-align:center}
+  #start-overlay h1{font-size:28px;font-weight:700}
+  #start-overlay p{font-size:15px;color:#9aa4b8;line-height:1.6;max-width:360px}
+  #start-btn{padding:18px 52px;font-size:20px;font-weight:700;border-radius:999px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(16,185,129,.35)}
+  #start-btn:active{transform:scale(.96)}
+  #toast{position:fixed;bottom:200px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.88);color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center;line-height:1.5}
+  #toast.show{opacity:1}
+  #export-modal{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;padding:20px;z-index:200;gap:12px}
+  #export-modal.show{display:flex}
+  #export-modal h3{font-size:18px}
+  #export-text{flex:1;width:100%;background:#0a0c10;color:#9fe8b8;border:none;border-radius:12px;padding:14px;font-family:monospace;font-size:12px;line-height:1.5;resize:none;outline:none}
+  .modal-btn{padding:14px;border-radius:12px;border:none;background:#10b981;color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+  .modal-btn.secondary{background:#3a4050}
+</style>
+</head>
+<body>
+
+<div id="image-area">
+  <div class="corner tl">☀️</div>
+  <div class="corner tr">🏠</div>
+  <div id="scene">👩‍🦰👋</div>
+</div>
+
+<div id="subtitle-area">
+  <div id="subtitle">Ready?</div>
+  <div id="hint"></div>
+</div>
+
+<div id="controls">
+  <div id="round-indicator">ROUND 0/6</div>
+  <div id="mic-row"><button id="mic-btn" disabled>🎤</button></div>
+  <div id="mic-actions" style="display:none;gap:14px;">
+    <button class="small-btn" id="text-mode-btn">⌨️ 键盘输入</button>
+    <button class="small-btn" id="skip-btn">⏭️ 跳过</button>
+  </div>
+  <div id="text-input-row">
+    <input id="text-input" type="text" placeholder="家长代打孩子说的话…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button id="text-submit">提交</button>
+  </div>
+</div>
+
+<div id="debug-bar">debug: ready</div>
+<div id="toast"></div>
+
+<div id="export-modal">
+  <h3>本次成绩（长按复制）</h3>
+  <textarea id="export-text" readonly></textarea>
+  <button class="modal-btn" id="copy-btn">复制全部</button>
+  <button class="modal-btn secondary" id="close-export">关闭</button>
+</div>
+
+<div id="start-overlay">
+  <h1>AI 英语陪练</h1>
+  <p>点击开始，跟 AI 老师说英语。<br><br>
+  <b>iPhone 用户注意</b>：<br>
+  1. 会弹 2 次麦克风权限，都要点允许<br>
+  2. 点麦克风后 iOS 会弹系统录音界面，正常<br>
+  3. 如果一直识别不出来，用「键盘输入」代打</p>
+  <button id="start-btn">开始上课</button>
+</div>
+
+<script>
+/* ---------- 规则引擎 ---------- */
+const CONTRACTIONS = [
+  [/\bi'm\b/g,'i am'],[/\bit's\b/g,'it is'],[/\bthat's\b/g,'that is'],
+  [/\bwhat's\b/g,'what is'],[/\bdon't\b/g,'do not'],[/\bcan't\b/g,'cannot'],
+  [/\bwon't\b/g,'will not'],[/\blet's\b/g,'let us'],
+];
+const WORD_SYNONYMS = {
+  // 英美差异：mom 系统一为 mum
+  mom:'mum', mommy:'mummy',
+  // ASR 常见变体
+  yeah:'yes', yep:'yes', yup:'yes', ya:'yes', ok:'yes', okay:'yes',
+  nope:'no', nah:'no',
+  hi:'hello', hey:'hello',
+};
+function canonWord(w){ return WORD_SYNONYMS[w] || w; }
+function canonWords(s){ return s.split(' ').filter(Boolean).map(canonWord); }
+const SENTENCE_SYNONYMS = {
+  yeah:'yes',yep:'yes',yup:'yes',ya:'yes',ok:'yes',okay:'yes',
+  nope:'no',nah:'no', hi:'hello',hey:'hello',
+};
+function normalize(s){
+  if(!s) return '';
+  let t = String(s).toLowerCase().replace(/['']/g,"'");
+  for(const [re,rep] of CONTRACTIONS) t = t.replace(re,rep);
+  return t.replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+}
+function canonicalize(s){
+  const n = normalize(s);
+  return SENTENCE_SYNONYMS[n] || n;
+}
+function countWordMatches(eWords,cWords){
+  const pool = cWords.slice(); let m = 0;
+  for(const w of eWords){ const i = pool.indexOf(w); if(i>=0){m++;pool.splice(i,1);} }
+  return m;
+}
+function isOrderedSubset(sub,full){
+  if(!sub.length) return false;
+  let i = 0;
+  for(const w of full){ if(w === sub[i]) i++; if(i === sub.length) return true; }
+  return false;
+}
+function judge(expect, childSaid){
+  const e = canonicalize(expect), c = canonicalize(childSaid);
+  if(!c) return { eval:'silent', ratio:0 };
+  if(c === e) return { eval:'correct', ratio:1 };
+  // 词级同义词替换后再比
+  const eW = canonWords(e), cW = canonWords(c);
+  if(eW.join(' ') === cW.join(' ')) return { eval:'correct', ratio:1 };
+  if(isOrderedSubset(eW,cW)) return { eval:'correct', ratio:1 };
+  const matched = countWordMatches(eW,cW);
+  const ratio = matched / eW.length;
+  if(matched === eW.length - 1 && eW.length >= 2) return { eval:'almost', ratio };
+  if(cW.length === 1 && eW.includes(cW[0])) return { eval:'partial', ratio };
+  if(ratio >= 0.5) return { eval:'partial', ratio };
+  if(cW.length <= 2) return { eval:'unclear', ratio };
+  if(ratio < 0.3) return { eval:'wrong', ratio };
+  return { eval:'partial', ratio };
+}
+function judgeMulti(expect, alts){
+  const valid = (alts || []).filter(a => a && String(a).trim());
+  if(!valid.length) return judge(expect, '');
+  // 优先：任何一个备选判 correct → 直接返回
+  for(const alt of valid){
+    const j = judge(expect, alt);
+    if(j.eval === 'correct') return { ...j, said: alt };
+  }
+  // 否则：选 ratio 最高的
+  let best = null;
+  for(const alt of valid){
+    const j = judge(expect, alt);
+    const cand = { ...j, said: alt };
+    if(!best || cand.ratio > best.ratio) best = cand;
+  }
+  return best;
+}
+const STAGE_TEMPLATES = {
+  0: ['T01','T02','T03','T04','T08'],
+  1: ['T01','T02','T03','T04','T05','T07','T08'],
+  2: ['T01','T02','T03','T04','T05','T06','T07','T08'],
+  3: ['T01','T02','T03','T04','T05','T06','T07','T08'],
+  4: ['T01','T02','T03','T04','T05','T06','T07','T08'],
+};
+function decide(j, ctx){
+  const stage = ctx.stage;
+  const allowed = STAGE_TEMPLATES[stage] || STAGE_TEMPLATES[0];
+  const ev = j.eval, attempts = ctx.attempts || 0;
+  let template_id = 'T04';
+  if(ev === 'correct'){
+    if(ctx.isAdvancing && ctx.nextQId) template_id = (stage === 0) ? 'T01' : 'T07';
+    else template_id = 'T01';
+  } else if(ev === 'almost' || ev === 'partial'){ template_id = 'T02'; }
+  else if(ev === 'wrong'){ template_id = (attempts >= 2 && allowed.includes('T06')) ? 'T06' : 'T03'; }
+  else if(ev === 'silent'){ template_id = 'T04'; }
+  else if(ev === 'unclear'){ template_id = allowed.includes('T05') ? 'T05' : 'T04'; }
+  if(!allowed.includes(template_id)) template_id = 'T04';
+  return {
+    template_id,
+    next_question_id: (ev === 'correct' && ctx.isAdvancing) ? (ctx.nextQId || '') : '',
+  };
+}
+function compose(template_id, ctx){
+  const p = ctx.praise || 'Good!', exp = ctx.expect || '';
+  const rec = ctx.recast || exp, fw = ctx.focus_word || '';
+  const nq = ctx.next_question || '';
+  switch(template_id){
+    case 'T01': return p;
+    case 'T02': return `${p} ${rec} Say: ${rec}`;
+    case 'T03': return `Try again. Say: ${exp}`;
+    case 'T04': return `Your turn. Say: ${exp}`;
+    case 'T05': return `One more time.`;
+    case 'T06': return `Say: ${fw}`;
+    case 'T07': return `${p} ${nq}`;
+    case 'T08': return `${p} Goodbye!`;
+    default:    return p;
+  }
+}
+
+/* ---------- 图卡 ---------- */
+const CARD = {
+  card_id:'card_01a', stage:0,
+  emoji:'👩‍🦰👋',
+  decorations:{ tl:'☀️', tr:'🏠' },
+  question_pool:[
+    { id:'Q00', text:'Say: Hello!',         expect:'Hello.',        type:'repeat',  warmup:true },
+    { id:'Q01', text:'Say: Good morning.',  expect:'Good morning.', type:'repeat'  },
+    { id:'Q02', text:'Who is this?',        expect:'This is Mum.',  type:'answer',  core:true  },
+    { id:'Q03', text:'Say: I love Mum.',    expect:'I love Mum.',   type:'repeat'  },
+    { id:'Q04', text:'Is this Mum?',        expect:'Yes.',          type:'confirm' },
+    { id:'Q05', text:'Say: Goodbye, Mum!',  expect:'Goodbye, Mum!', type:'repeat'  },
+  ],
+  rounds:6,
+};
+
+/* ---------- 状态 ---------- */
+const state = {
+  phase:'IDLE', round:0, attempts:0,
+  praiseIndex:0, history:[], skipNextQuestion:false,
+  sessionStart:new Date(),
+};
+const $ = id => document.getElementById(id);
+const els = {
+  scene:$('scene'), subtitle:$('subtitle'), hint:$('hint'),
+  mic:$('mic-btn'), roundInd:$('round-indicator'),
+  overlay:$('start-overlay'), startBtn:$('start-btn'),
+  toast:$('toast'), imageArea:$('image-area'),
+  micActions:$('mic-actions'), textModeBtn:$('text-mode-btn'), skipBtn:$('skip-btn'),
+  textInputRow:$('text-input-row'), textInput:$('text-input'), textSubmit:$('text-submit'),
+  exportModal:$('export-modal'), exportText:$('export-text'),
+  copyBtn:$('copy-btn'), closeExport:$('close-export'),
+  debugBar:$('debug-bar'),
+};
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function dbg(s){ els.debugBar.textContent = s; }
+function showToast(msg, ms=2600){
+  els.toast.textContent = msg;
+  els.toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>els.toast.classList.remove('show'), ms);
+}
+function setPhase(p){
+  state.phase = p; console.log('[phase]', p);
+  if(['AI_SPEAK','EVALUATING','FEEDBACK'].includes(p)){
+    els.mic.disabled = true;
+    els.mic.classList.remove('listening','recording');
+  } else if(p === 'WAIT_CHILD'){
+    els.mic.disabled = false;
+    els.mic.classList.add('listening');
+    els.mic.classList.remove('recording');
+  } else if(p === 'RECORDING'){
+    els.mic.disabled = false;
+    els.mic.classList.remove('listening');
+    els.mic.classList.add('recording');
+  }
+}
+const setSubtitle = t => els.subtitle.textContent = t;
+const setHint     = h => els.hint.innerHTML = h;
+const setRoundDisplay = () => {
+  els.roundInd.textContent = `ROUND ${Math.min(state.round+1, CARD.rounds)}/${CARD.rounds}`;
+};
+function pickPraise(stage){
+  const pool = stage===0
+    ? ['Good!','Great!','Nice!']
+    : ['Good!','Great!','Nice!','Good job!','Very good!'];
+  const p = pool[state.praiseIndex % pool.length];
+  state.praiseIndex++;
+  return p;
+}
+
+/* ---------- 语音 ---------- */
+function speak(text){
+  return new Promise(resolve => {
+    if(!text) return resolve();
+    try{ speechSynthesis.cancel(); }catch(e){}
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.05;
+    const vs = speechSynthesis.getVoices();
+    const v = vs.find(x=>/en-US/i.test(x.lang) && /Google|Samantha|Aria|Zira/i.test(x.name))
+           || vs.find(x=>/en/i.test(x.lang));
+    if(v) u.voice = v;
+    let done = false;
+    const fin = ()=>{ if(!done){ done=true; resolve(); } };
+    u.onend = fin; u.onerror = fin;
+    setTimeout(fin, Math.max(2500, text.length*160));
+    try{ speechSynthesis.speak(u); }catch(e){ fin(); }
+  });
+}
+// 返回 {text, alts, error}
+function listenOnce(timeoutMs=7000){
+  return new Promise(resolve=>{
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR) return resolve({ text:'', alts:[], error:'no-asr' });
+    let rec;
+    try { rec = new SR(); }
+    catch(e){ return resolve({ text:'', alts:[], error:'init-fail' }); }
+    rec.lang = 'en-US';
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.maxAlternatives = 3;
+    let finished = false;
+    const fin = p => { if(finished) return; finished=true; try{rec.abort()}catch(e){}; resolve(p); };
+    rec.onresult = e => {
+      const alts = Array.from(e.results[0]).map(r => r.transcript);
+      fin({ text: alts[0] || '', alts });
+    };
+    rec.onerror = e => fin({ text:'', alts:[], error: e.error || 'asr-error' });
+    rec.onend   = () => fin({ text:'', alts:[], error:'no-speech' });
+    setTimeout(()=>fin({ text:'', alts:[], error:'timeout' }), timeoutMs);
+    try{ rec.start(); }catch(e){ fin({ text:'', alts:[], error:'start-fail' }); }
+  });
+}
+// 区分"听不清类错误"和"有结果的错误"
+const ASR_ERRORS = ['no-asr','no-speech','not-allowed','service-not-allowed','timeout','start-fail','aborted','init-fail','asr-error'];
+
+/* ---------- 主流程 ---------- */
+const getQ = i => CARD.question_pool[i];
+
+function renderCard(){
+  els.scene.textContent = CARD.emoji;
+  els.scene.classList.remove('enter');
+  void els.scene.offsetWidth;
+  els.scene.classList.add('enter');
+  document.querySelectorAll('.corner').forEach(c=>c.remove());
+  if(CARD.decorations){
+    for(const [pos,em] of Object.entries(CARD.decorations)){
+      const d = document.createElement('div');
+      d.className = `corner ${pos}`;
+      d.textContent = em;
+      els.imageArea.appendChild(d);
+    }
+  }
+}
+async function aiSay(text, hint=''){
+  setPhase('AI_SPEAK');
+  setSubtitle(text);
+  setHint(hint ? `🔊 ${hint}` : '');
+  await speak(text);
+  // TTS 后冷却，避免 iOS 抢音频通道
+  await sleep(400);
+}
+
+// 等孩子说 —— 核心改动：ASR 错误时不走判级
+async function waitChild(){
+  setPhase('WAIT_CHILD');
+  els.micActions.style.display = 'flex';
+  els.textInputRow.classList.remove('show');
+
+  let missCount = 0;
+
+  while(true){
+    const res = await new Promise(resolve=>{
+      // 麦克风
+      els.mic.onclick = async () => {
+        els.mic.onclick = null;
+        setPhase('RECORDING');
+        setSubtitle('🎤 Listening...');
+        setHint('说完等一下');
+        dbg('🎤 mic pressed, waiting 300ms...');
+        await sleep(300);
+        dbg('🎤 ASR starting...');
+        const r = await listenOnce();
+        resolve(r);
+      };
+      // 键盘输入
+      els.textModeBtn.onclick = () => {
+        els.textInputRow.classList.add('show');
+        els.textInput.focus();
+      };
+      // 提交键盘
+      const submitText = () => {
+        const v = els.textInput.value.trim();
+        if(!v) return;
+        els.textInput.value = '';
+        els.mic.onclick = null;
+        resolve({ text: v, alts: [v], source: 'text' });
+      };
+      els.textSubmit.onclick = submitText;
+      els.textInput.onkeydown = e => { if(e.key === 'Enter') submitText(); };
+      // 跳过
+      els.skipBtn.onclick = () => {
+        els.mic.onclick = null;
+        resolve({ text:'', alts:[], error:'skipped', source:'skip' });
+      };
+    });
+
+    // 键盘输入或跳过：直接返回
+    if(res.source === 'text'){ 
+      els.micActions.style.display = 'none';
+      els.textInputRow.classList.remove('show');
+      setPhase('EVALUATING');
+      return res;
+    }
+    if(res.source === 'skip'){ 
+      els.micActions.style.display = 'none';
+      setPhase('EVALUATING');
+      return res;
+    }
+
+    // ASR 错误 / 空 → 不走判级，重新等
+    const isError = ASR_ERRORS.includes(res.error) || !res.text || !res.text.trim();
+    if(isError){
+      missCount++;
+      dbg(`❌ ASR error: ${res.error||'empty'} | alts: ${(res.alts||[]).join(',')||'(none)'} | miss ${missCount}`);
+      if(res.error === 'not-allowed' || res.error === 'service-not-allowed'){
+        showToast('麦克风权限被拒。请用键盘输入。', 4000);
+        els.textInputRow.classList.add('show');
+        els.textInput.focus();
+      } else if(missCount >= 3){
+        showToast('连续没听清，请用键盘输入', 3000);
+        els.textInputRow.classList.add('show');
+        els.textInput.focus();
+      } else {
+        showToast(`没听清，再说一次（${missCount}/3）`, 2000);
+      }
+      setPhase('WAIT_CHILD');
+      continue;  // 重新等，不判级
+    }
+
+    // 有结果 → 正常返回
+    els.micActions.style.display = 'none';
+    setPhase('EVALUATING');
+    dbg(`✅ ASR: "${res.text}" | alts: ${(res.alts||[]).join(' | ')}`);
+    return res;
+  }
+}
+
+async function runWarmup(q){
+  await aiSay(q.text, '跟读：Hello.');
+  const res = await waitChild();
+  const said = (res.text || '').trim();
+  if(said){
+    await aiSay(pickPraise(CARD.stage));
+  } else {
+    await aiSay('Hello!');
+  }
+  state.history.push({
+    round: state.round+1, qid:q.id, expect:q.expect, said,
+    eval:'warmup', template:'-', ai_said:'(warmup)', source:'-', asr_alts:'-',
+  });
+}
+
+async function runRound(){
+  if(state.round >= CARD.rounds) return endCard();
+  setRoundDisplay();
+  const q = getQ(state.round);
+  state.attempts = 0;
+
+  if(q.warmup){
+    await runWarmup(q);
+    state.round++;
+    return runRound();
+  }
+
+  if(state.skipNextQuestion){
+    state.skipNextQuestion = false;
+  } else {
+    await aiSay(q.text, q.type==='repeat' ? `跟读：${q.expect}` : '');
+  }
+
+  while(state.attempts < 3){
+    const res = await waitChild();
+
+    // 跳过
+    if(res.source === 'skip'){
+      state.history.push({
+        round: state.round+1, qid:q.id, expect:q.expect, said:'',
+        eval:'skipped', template:'-', ai_said:'(skipped)', source:'skip', asr_alts:'-',
+      });
+      break;
+    }
+
+    const said = res.text || '';
+    const j = judgeMulti(q.expect, res.alts);
+
+    const nextQ = CARD.question_pool[state.round+1];
+    const isAdvancing = (j.eval === 'correct');
+    const decision = decide(j, {
+      stage: CARD.stage, attempts: state.attempts,
+      isAdvancing, nextQId: nextQ ? nextQ.id : '',
+    });
+
+    const praise = pickPraise(CARD.stage);
+    const focusWord = normalize(q.expect).split(' ').slice(-1)[0];
+    const aiText = compose(decision.template_id, {
+      praise, expect:q.expect, recast:q.expect,
+      focus_word: focusWord,
+      next_question: nextQ ? nextQ.text : '',
+    });
+
+    state.history.push({
+      round: state.round+1, qid:q.id, expect:q.expect,
+      said: j.said || said, eval: j.eval,
+      template: decision.template_id, ai_said: aiText,
+      asr_alts: (res.alts||[]).join(' | '),
+      source: res.source || 'asr',
+    });
+
+    const showHint = ['T02','T03','T04'].includes(decision.template_id)
+      ? `Say: ${q.expect}` : '';
+    await aiSay(aiText, showHint);
+
+    if(j.eval === 'correct'){
+      if(decision.template_id === 'T07') state.skipNextQuestion = true;
+      break;
+    } else {
+      state.attempts++;
+      if(state.attempts >= 3){
+        showToast('我们继续下一题吧');
+        break;
+      }
+    }
+  }
+  state.round++;
+  return runRound();
+}
+
+function buildExportText(){
+  const scored = state.history.filter(h=>h.eval !== 'warmup');
+  const correct = scored.filter(h=>h.eval==='correct').length;
+  const lines = [];
+  lines.push(`=== card_01a 成绩单 ===`);
+  lines.push(`日期: ${state.sessionStart.toLocaleString('zh-CN')}`);
+  lines.push(`正确: ${correct} / ${scored.length}`);
+  lines.push('');
+  lines.push('round | qid | expect | said | eval | template | asr_alts | source');
+  for(const h of state.history){
+    lines.push([h.round, h.qid, h.expect, h.said, h.eval, h.template,
+      (h.asr_alts||'').replace(/\n/g,' '), h.source||'asr'].join(' | '));
+  }
+  return lines.join('\n');
+}
+
+async function endCard(){
+  setPhase('FEEDBACK');
+  await aiSay(`${pickPraise(CARD.stage)} Goodbye!`);
+  setPhase('END');
+
+  const scored = state.history.filter(h=>h.eval !== 'warmup');
+  const correct = scored.filter(h=>h.eval==='correct').length;
+  setSubtitle('🎉 Well done!');
+  setHint(`Correct: ${correct} / ${scored.length}  ·  Tap 📋 to see report`);
+  els.mic.disabled = false;
+  els.mic.classList.remove('listening','recording');
+  els.mic.textContent = '📋';
+  els.mic.onclick = () => {
+    els.exportText.value = buildExportText();
+    els.exportModal.classList.add('show');
+  };
+  console.log('=== SESSION HISTORY ===');
+  console.table(state.history);
+}
+
+/* ---------- 启动 ---------- */
+async function start(){
+  try{
+    const u = new SpeechSynthesisUtterance('.');
+    u.volume = 0;
+    speechSynthesis.speak(u);
+  }catch(e){}
+
+  els.overlay.style.display = 'none';
+  renderCard();
+  setRoundDisplay();
+
+  dbg('✅ 就绪，麦克风权限将由识别时自动请求');
+
+  if(speechSynthesis.getVoices().length === 0){
+    await new Promise(r=>{ speechSynthesis.onvoiceschanged = r; setTimeout(r,800); });
+  }
+
+  await aiSay("Hello!", '跟 AI 老师说英语');
+  await runRound();
+}
+
+els.startBtn.addEventListener('click', start);
+els.copyBtn.addEventListener('click', async () => {
+  try{
+    await navigator.clipboard.writeText(els.exportText.value);
+    showToast('已复制');
+  }catch(e){
+    els.exportText.select();
+    document.execCommand('copy');
+    showToast('已复制');
+  }
+});
+els.closeExport.addEventListener('click', ()=>els.exportModal.classList.remove('show'));
+document.addEventListener('gesturestart', e=>e.preventDefault());
+</script>
+</body>
+</html>
