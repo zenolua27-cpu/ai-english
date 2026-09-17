@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1a1d24">
-<title>AI 英语陪练 · card_01a</title>
+<title>AI 英语陪练</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;font-family:-apple-system,"PingFang SC",sans-serif}
@@ -34,10 +34,16 @@
   #text-submit{padding:12px 20px;border-radius:12px;border:none;background:#10b981;color:#fff;font-weight:700;font-size:14px}
   #round-indicator{position:absolute;top:10px;right:18px;font-size:12px;color:#6b7280;font-weight:600;letter-spacing:1px}
   #debug-bar{background:#0f1117;color:#6b7280;font-size:11px;padding:6px 12px;font-family:monospace;line-height:1.5;max-height:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-top:1px solid #232733}
-  #start-overlay{position:fixed;inset:0;background:#0f1117;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:100;padding:24px;text-align:center}
-  #start-overlay h1{font-size:28px;font-weight:700}
-  #start-overlay p{font-size:15px;color:#9aa4b8;line-height:1.6;max-width:360px}
-  #start-btn{padding:18px 52px;font-size:20px;font-weight:700;border-radius:999px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(16,185,129,.35)}
+  #start-overlay{position:fixed;inset:0;background:#0f1117;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;z-index:100;padding:24px 20px;text-align:center;overflow-y:auto}
+  #start-overlay h1{font-size:26px;font-weight:700;margin-top:8px}
+  #start-overlay p{font-size:14px;color:#9aa4b8;line-height:1.6;max-width:360px}
+  #card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:400px;margin:8px 0}
+  .card-pick{background:#232733;border:2px solid transparent;border-radius:14px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:all .2s}
+  .card-pick.selected{border-color:#10b981;background:#1d3a30}
+  .card-pick .emoji{font-size:34px;line-height:1}
+  .card-pick .name{font-size:11px;color:#c0c8d8;font-weight:600}
+  .card-pick .id{font-size:10px;color:#6b7280;font-family:monospace}
+  #start-btn{padding:16px 48px;font-size:19px;font-weight:700;border-radius:999px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(16,185,129,.35)}
   #start-btn:active{transform:scale(.96)}
   #toast{position:fixed;bottom:200px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.88);color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center;line-height:1.5}
   #toast.show{opacity:1}
@@ -52,8 +58,6 @@
 <body>
 
 <div id="image-area">
-  <div class="corner tl">☀️</div>
-  <div class="corner tr">🏠</div>
   <div id="scene">👩‍🦰👋</div>
 </div>
 
@@ -82,16 +86,16 @@
   <h3>本次成绩（长按复制）</h3>
   <textarea id="export-text" readonly></textarea>
   <button class="modal-btn" id="copy-btn">复制全部</button>
+  <button class="modal-btn" id="back-to-picker" style="background:#3a4050">换一张卡</button>
   <button class="modal-btn secondary" id="close-export">关闭</button>
 </div>
 
 <div id="start-overlay">
   <h1>AI 英语陪练</h1>
-  <p>点击开始，跟 AI 老师说英语。<br><br>
-  <b>iPhone 用户注意</b>：<br>
-  1. 会弹 2 次麦克风权限，都要点允许<br>
-  2. 点麦克风后 iOS 会弹系统录音界面，正常<br>
-  3. 如果一直识别不出来，用「键盘输入」代打</p>
+  <p>选一张卡，开始上课。<br><br>
+  <b>iPhone 用户</b>：必须用 <b>Safari</b> 打开。<br>
+  第一次按 🎤 时会弹麦克风权限，点允许。</p>
+  <div id="card-grid"></div>
   <button id="start-btn">开始上课</button>
 </div>
 
@@ -102,20 +106,18 @@ const CONTRACTIONS = [
   [/\bwhat's\b/g,'what is'],[/\bdon't\b/g,'do not'],[/\bcan't\b/g,'cannot'],
   [/\bwon't\b/g,'will not'],[/\blet's\b/g,'let us'],
 ];
+const SENTENCE_SYNONYMS = {
+  yeah:'yes',yep:'yes',yup:'yes',ya:'yes',ok:'yes',okay:'yes',
+  nope:'no',nah:'no', hi:'hello',hey:'hello',
+};
 const WORD_SYNONYMS = {
-  // 英美差异：mom 系统一为 mum
   mom:'mum', mommy:'mummy',
-  // ASR 常见变体
   yeah:'yes', yep:'yes', yup:'yes', ya:'yes', ok:'yes', okay:'yes',
   nope:'no', nah:'no',
   hi:'hello', hey:'hello',
 };
 function canonWord(w){ return WORD_SYNONYMS[w] || w; }
 function canonWords(s){ return s.split(' ').filter(Boolean).map(canonWord); }
-const SENTENCE_SYNONYMS = {
-  yeah:'yes',yep:'yes',yup:'yes',ya:'yes',ok:'yes',okay:'yes',
-  nope:'no',nah:'no', hi:'hello',hey:'hello',
-};
 function normalize(s){
   if(!s) return '';
   let t = String(s).toLowerCase().replace(/['']/g,"'");
@@ -141,7 +143,6 @@ function judge(expect, childSaid){
   const e = canonicalize(expect), c = canonicalize(childSaid);
   if(!c) return { eval:'silent', ratio:0 };
   if(c === e) return { eval:'correct', ratio:1 };
-  // 词级同义词替换后再比
   const eW = canonWords(e), cW = canonWords(c);
   if(eW.join(' ') === cW.join(' ')) return { eval:'correct', ratio:1 };
   if(isOrderedSubset(eW,cW)) return { eval:'correct', ratio:1 };
@@ -157,12 +158,10 @@ function judge(expect, childSaid){
 function judgeMulti(expect, alts){
   const valid = (alts || []).filter(a => a && String(a).trim());
   if(!valid.length) return judge(expect, '');
-  // 优先：任何一个备选判 correct → 直接返回
   for(const alt of valid){
     const j = judge(expect, alt);
     if(j.eval === 'correct') return { ...j, said: alt };
   }
-  // 否则：选 ratio 最高的
   let best = null;
   for(const alt of valid){
     const j = judge(expect, alt);
@@ -213,21 +212,129 @@ function compose(template_id, ctx){
   }
 }
 
-/* ---------- 图卡 ---------- */
-const CARD = {
-  card_id:'card_01a', stage:0,
-  emoji:'👩‍🦰👋',
-  decorations:{ tl:'☀️', tr:'🏠' },
-  question_pool:[
-    { id:'Q00', text:'Say: Hello!',         expect:'Hello.',        type:'repeat',  warmup:true },
-    { id:'Q01', text:'Say: Good morning.',  expect:'Good morning.', type:'repeat'  },
-    { id:'Q02', text:'Who is this?',        expect:'This is Mum.',  type:'answer',  core:true  },
-    { id:'Q03', text:'Say: I love Mum.',    expect:'I love Mum.',   type:'repeat'  },
-    { id:'Q04', text:'Is this Mum?',        expect:'Yes.',          type:'confirm' },
-    { id:'Q05', text:'Say: Goodbye, Mum!',  expect:'Goodbye, Mum!', type:'repeat'  },
-  ],
-  rounds:6,
-};
+/* ---------- 图卡数据（9 张） ---------- */
+const CARDS = [
+  {
+    card_id:'card_01a', stage:0, name:'妈妈', emoji:'👩‍🦰👋',
+    decorations:{ tl:'☀️', tr:'🏠' },
+    question_pool:[
+      { id:'Q00', text:'Say: Hello!',         expect:'Hello.',        warmup:true },
+      { id:'Q01', text:'Say: Good morning.',  expect:'Good morning.', type:'repeat'  },
+      { id:'Q02', text:'Who is this?',        expect:'This is Mum.',  type:'answer', core:true },
+      { id:'Q03', text:'Say: I love Mum.',    expect:'I love Mum.',   type:'repeat' },
+      { id:'Q04', text:'Is this Mum?',        expect:'Yes.',          type:'confirm' },
+      { id:'Q05', text:'Say: Goodbye, Mum!',  expect:'Goodbye, Mum!', type:'repeat' },
+    ],
+    rounds:6,
+  },
+  {
+    card_id:'card_01b', stage:0, name:'校车', emoji:'🚌',
+    decorations:{ tl:'☀️', tr:'🏫' },
+    question_pool:[
+      { id:'Q00', text:'Say: Hello!',         expect:'Hello.',         warmup:true },
+      { id:'Q01', text:'Say: Good morning.',  expect:'Good morning.',  type:'repeat' },
+      { id:'Q02', text:"What's this?",        expect:"It's a school bus.", type:'answer', core:true },
+      { id:'Q03', text:"Say: It's a bus.",    expect:"It's a bus.",    type:'repeat' },
+      { id:'Q04', text:'Is this a bus?',      expect:'Yes.',           type:'confirm' },
+      { id:'Q05', text:'Say: Goodbye!',       expect:'Goodbye.',       type:'repeat' },
+    ],
+    rounds:6,
+  },
+  {
+    card_id:'card_01c', stage:0, name:'男孩', emoji:'👦🎒',
+    decorations:{ tl:'☀️', tr:'🏫' },
+    question_pool:[
+      { id:'Q00', text:'Say: Hello!',          expect:'Hello.',         warmup:true },
+      { id:'Q01', text:'Say: Good morning.',   expect:'Good morning.',  type:'repeat' },
+      { id:'Q02', text:'Who is this?',         expect:'This is a boy.', type:'answer', core:true },
+      { id:'Q03', text:'Say: He has a bag.',   expect:'He has a bag.',  type:'repeat' },
+      { id:'Q04', text:'Is this a boy?',       expect:'Yes.',           type:'confirm' },
+      { id:'Q05', text:'Say: Goodbye, boy!',   expect:'Goodbye, boy!',  type:'repeat' },
+    ],
+    rounds:6,
+  },
+  {
+    card_id:'card_02a', stage:0, name:'老师', emoji:'👩‍🏫',
+    decorations:{ tl:'📚', tr:'🏫' },
+    question_pool:[
+      { id:'Q00', text:'Say: Hello!',              expect:'Hello.',             warmup:true },
+      { id:'Q01', text:'Say: Good morning.',       expect:'Good morning.',      type:'repeat' },
+      { id:'Q02', text:'Who is this?',             expect:'This is the teacher.', type:'answer', core:true },
+      { id:'Q03', text:'Say: Hello, teacher.',     expect:'Hello, teacher.',    type:'repeat' },
+      { id:'Q04', text:'Is this the teacher?',     expect:'Yes.',               type:'confirm' },
+      { id:'Q05', text:'Say: Goodbye!',            expect:'Goodbye.',           type:'repeat' },
+    ],
+    rounds:6,
+  },
+  {
+    card_id:'card_02b', stage:0, name:'课桌', emoji:'🪑',
+    decorations:{ tl:'📖', tr:'🏫' },
+    question_pool:[
+      { id:'Q00', text:'Say: Hello!',           expect:'Hello.',          warmup:true },
+      { id:'Q01', text:'Say: Good morning.',    expect:'Good morning.',   type:'repeat' },
+      { id:'Q02', text:"What's this?",          expect:"It's a desk.",    type:'answer', core:true },
+      { id:'Q03', text:"Say: It's my desk.",    expect:"It's my desk.",   type:'repeat' },
+      { id:'Q04', text:'Is this a desk?',       expect:'Yes.',            type:'confirm' },
+      { id:'Q05', text:'Say: Goodbye!',         expect:'Goodbye.',        type:'repeat' },
+    ],
+    rounds:6,
+  },
+  {
+    card_id:'card_02c', stage:0, name:'女孩', emoji:'👧',
+    decorations:{ tl:'☀️', tr:'🌸' },
+    question_pool:[
+      { id:'Q00', text:'Say: Hello!',           expect:'Hello.',           warmup:true },
+      { id:'Q01', text:'Say: Good morning.',    expect:'Good morning.',    type:'repeat' },
+      { id:'Q02', text:'Who is this?',          expect:'This is a girl.',  type:'answer', core:true },
+      { id:'Q03', text:'Say: She is happy.',    expect:'She is happy.',    type:'repeat' },
+      { id:'Q04', text:'Is this a girl?',       expect:'Yes.',             type:'confirm' },
+      { id:'Q05', text:'Say: Goodbye, girl!',   expect:'Goodbye, girl!',   type:'repeat' },
+    ],
+    rounds:6,
+  },
+  {
+    card_id:'card_03a', stage:0, name:'爸爸', emoji:'👨',
+    decorations:{ tl:'🌙', tr:'🏠' },
+    question_pool:[
+      { id:'Q00', text:'Say: Hello!',           expect:'Hello.',           warmup:true },
+      { id:'Q01', text:'Say: Good evening.',    expect:'Good evening.',    type:'repeat' },
+      { id:'Q02', text:'Who is this?',          expect:'This is Dad.',     type:'answer', core:true },
+      { id:'Q03', text:'Say: I love Dad.',      expect:'I love Dad.',      type:'repeat' },
+      { id:'Q04', text:'Is this Dad?',          expect:'Yes.',             type:'confirm' },
+      { id:'Q05', text:'Say: Good night, Dad!', expect:'Good night, Dad!', type:'repeat' },
+    ],
+    rounds:6,
+  },
+  {
+    card_id:'card_03b', stage:0, name:'台灯', emoji:'💡',
+    decorations:{ tl:'🌙', tr:'📖' },
+    question_pool:[
+      { id:'Q00', text:'Say: Hello!',           expect:'Hello.',           warmup:true },
+      { id:'Q01', text:'Say: Good evening.',    expect:'Good evening.',    type:'repeat' },
+      { id:'Q02', text:"What's this?",          expect:"It's a lamp.",     type:'answer', core:true },
+      { id:'Q03', text:'Say: A lamp.',          expect:'A lamp.',          type:'repeat' },
+      { id:'Q04', text:'Is this a lamp?',       expect:'Yes.',             type:'confirm' },
+      { id:'Q05', text:'Say: Good night!',      expect:'Good night!',      type:'repeat' },
+    ],
+    rounds:6,
+  },
+  {
+    card_id:'card_03c', stage:0, name:'沙发', emoji:'🛋️',
+    decorations:{ tl:'🌙', tr:'🏠' },
+    question_pool:[
+      { id:'Q00', text:'Say: Hello!',           expect:'Hello.',           warmup:true },
+      { id:'Q01', text:'Say: Good evening.',    expect:'Good evening.',    type:'repeat' },
+      { id:'Q02', text:"What's this?",          expect:"It's a sofa.",     type:'answer', core:true },
+      { id:'Q03', text:"Say: It's a sofa.",     expect:"It's a sofa.",     type:'repeat' },
+      { id:'Q04', text:'Is this a sofa?',       expect:'Yes.',             type:'confirm' },
+      { id:'Q05', text:'Say: Good night!',      expect:'Good night!',      type:'repeat' },
+    ],
+    rounds:6,
+  },
+];
+
+let CARD = CARDS[0];
+let selectedCardIndex = 0;
 
 /* ---------- 状态 ---------- */
 const state = {
@@ -245,7 +352,8 @@ const els = {
   textInputRow:$('text-input-row'), textInput:$('text-input'), textSubmit:$('text-submit'),
   exportModal:$('export-modal'), exportText:$('export-text'),
   copyBtn:$('copy-btn'), closeExport:$('close-export'),
-  debugBar:$('debug-bar'),
+  backToPicker:$('back-to-picker'),
+  debugBar:$('debug-bar'), cardGrid:$('card-grid'),
 };
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 function dbg(s){ els.debugBar.textContent = s; }
@@ -256,7 +364,7 @@ function showToast(msg, ms=2600){
   showToast._t = setTimeout(()=>els.toast.classList.remove('show'), ms);
 }
 function setPhase(p){
-  state.phase = p; console.log('[phase]', p);
+  state.phase = p;
   if(['AI_SPEAK','EVALUATING','FEEDBACK'].includes(p)){
     els.mic.disabled = true;
     els.mic.classList.remove('listening','recording');
@@ -292,7 +400,7 @@ function speak(text){
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.05;
     const vs = speechSynthesis.getVoices();
-    const v = vs.find(x=>/en-US/i.test(x.lang) && /Google|Samantha|Aria|Zira/i.test(x.name))
+    const v = vs.find(x=>/en-US/i.test(x.lang) && /Google|Samantha|Aria|Zira|Ava/i.test(x.name))
            || vs.find(x=>/en/i.test(x.lang));
     if(v) u.voice = v;
     let done = false;
@@ -302,7 +410,6 @@ function speak(text){
     try{ speechSynthesis.speak(u); }catch(e){ fin(); }
   });
 }
-// 返回 {text, alts, error}
 function listenOnce(timeoutMs=7000){
   return new Promise(resolve=>{
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -326,7 +433,6 @@ function listenOnce(timeoutMs=7000){
     try{ rec.start(); }catch(e){ fin({ text:'', alts:[], error:'start-fail' }); }
   });
 }
-// 区分"听不清类错误"和"有结果的错误"
 const ASR_ERRORS = ['no-asr','no-speech','not-allowed','service-not-allowed','timeout','start-fail','aborted','init-fail','asr-error'];
 
 /* ---------- 主流程 ---------- */
@@ -352,21 +458,16 @@ async function aiSay(text, hint=''){
   setSubtitle(text);
   setHint(hint ? `🔊 ${hint}` : '');
   await speak(text);
-  // TTS 后冷却，避免 iOS 抢音频通道
   await sleep(400);
 }
 
-// 等孩子说 —— 核心改动：ASR 错误时不走判级
 async function waitChild(){
   setPhase('WAIT_CHILD');
   els.micActions.style.display = 'flex';
   els.textInputRow.classList.remove('show');
-
   let missCount = 0;
-
   while(true){
     const res = await new Promise(resolve=>{
-      // 麦克风
       els.mic.onclick = async () => {
         els.mic.onclick = null;
         setPhase('RECORDING');
@@ -378,12 +479,10 @@ async function waitChild(){
         const r = await listenOnce();
         resolve(r);
       };
-      // 键盘输入
       els.textModeBtn.onclick = () => {
         els.textInputRow.classList.add('show');
         els.textInput.focus();
       };
-      // 提交键盘
       const submitText = () => {
         const v = els.textInput.value.trim();
         if(!v) return;
@@ -393,27 +492,17 @@ async function waitChild(){
       };
       els.textSubmit.onclick = submitText;
       els.textInput.onkeydown = e => { if(e.key === 'Enter') submitText(); };
-      // 跳过
       els.skipBtn.onclick = () => {
         els.mic.onclick = null;
         resolve({ text:'', alts:[], error:'skipped', source:'skip' });
       };
     });
-
-    // 键盘输入或跳过：直接返回
-    if(res.source === 'text'){ 
+    if(res.source === 'text' || res.source === 'skip'){
       els.micActions.style.display = 'none';
       els.textInputRow.classList.remove('show');
       setPhase('EVALUATING');
       return res;
     }
-    if(res.source === 'skip'){ 
-      els.micActions.style.display = 'none';
-      setPhase('EVALUATING');
-      return res;
-    }
-
-    // ASR 错误 / 空 → 不走判级，重新等
     const isError = ASR_ERRORS.includes(res.error) || !res.text || !res.text.trim();
     if(isError){
       missCount++;
@@ -430,10 +519,8 @@ async function waitChild(){
         showToast(`没听清，再说一次（${missCount}/3）`, 2000);
       }
       setPhase('WAIT_CHILD');
-      continue;  // 重新等，不判级
+      continue;
     }
-
-    // 有结果 → 正常返回
     els.micActions.style.display = 'none';
     setPhase('EVALUATING');
     dbg(`✅ ASR: "${res.text}" | alts: ${(res.alts||[]).join(' | ')}`);
@@ -476,8 +563,6 @@ async function runRound(){
 
   while(state.attempts < 3){
     const res = await waitChild();
-
-    // 跳过
     if(res.source === 'skip'){
       state.history.push({
         round: state.round+1, qid:q.id, expect:q.expect, said:'',
@@ -485,17 +570,14 @@ async function runRound(){
       });
       break;
     }
-
     const said = res.text || '';
     const j = judgeMulti(q.expect, res.alts);
-
     const nextQ = CARD.question_pool[state.round+1];
     const isAdvancing = (j.eval === 'correct');
     const decision = decide(j, {
       stage: CARD.stage, attempts: state.attempts,
       isAdvancing, nextQId: nextQ ? nextQ.id : '',
     });
-
     const praise = pickPraise(CARD.stage);
     const focusWord = normalize(q.expect).split(' ').slice(-1)[0];
     const aiText = compose(decision.template_id, {
@@ -503,7 +585,6 @@ async function runRound(){
       focus_word: focusWord,
       next_question: nextQ ? nextQ.text : '',
     });
-
     state.history.push({
       round: state.round+1, qid:q.id, expect:q.expect,
       said: j.said || said, eval: j.eval,
@@ -511,7 +592,6 @@ async function runRound(){
       asr_alts: (res.alts||[]).join(' | '),
       source: res.source || 'asr',
     });
-
     const showHint = ['T02','T03','T04'].includes(decision.template_id)
       ? `Say: ${q.expect}` : '';
     await aiSay(aiText, showHint);
@@ -535,7 +615,7 @@ function buildExportText(){
   const scored = state.history.filter(h=>h.eval !== 'warmup');
   const correct = scored.filter(h=>h.eval==='correct').length;
   const lines = [];
-  lines.push(`=== card_01a 成绩单 ===`);
+  lines.push(`=== ${CARD.card_id} (${CARD.name}) 成绩单 ===`);
   lines.push(`日期: ${state.sessionStart.toLocaleString('zh-CN')}`);
   lines.push(`正确: ${correct} / ${scored.length}`);
   lines.push('');
@@ -563,8 +643,41 @@ async function endCard(){
     els.exportText.value = buildExportText();
     els.exportModal.classList.add('show');
   };
-  console.log('=== SESSION HISTORY ===');
-  console.table(state.history);
+}
+
+/* ---------- 卡片选择器 ---------- */
+function renderCardPicker(){
+  els.cardGrid.innerHTML = '';
+  CARDS.forEach((c, idx)=>{
+    const div = document.createElement('div');
+    div.className = 'card-pick' + (idx === selectedCardIndex ? ' selected' : '');
+    div.innerHTML = `
+      <div class="emoji">${c.emoji}</div>
+      <div class="name">${c.name}</div>
+      <div class="id">${c.card_id.replace('card_','')}</div>
+    `;
+    div.onclick = () => {
+      selectedCardIndex = idx;
+      CARD = CARDS[idx];
+      renderCardPicker();
+    };
+    els.cardGrid.appendChild(div);
+  });
+}
+function showPicker(){
+  els.overlay.style.display = 'flex';
+  renderCardPicker();
+}
+function hidePicker(){
+  els.overlay.style.display = 'none';
+}
+function resetState(){
+  state.round = 0;
+  state.attempts = 0;
+  state.praiseIndex = 0;
+  state.history = [];
+  state.skipNextQuestion = false;
+  state.sessionStart = new Date();
 }
 
 /* ---------- 启动 ---------- */
@@ -575,11 +688,12 @@ async function start(){
     speechSynthesis.speak(u);
   }catch(e){}
 
-  els.overlay.style.display = 'none';
+  resetState();
+  hidePicker();
   renderCard();
   setRoundDisplay();
 
-  dbg('✅ 就绪，麦克风权限将由识别时自动请求');
+  dbg('✅ 就绪');
 
   if(speechSynthesis.getVoices().length === 0){
     await new Promise(r=>{ speechSynthesis.onvoiceschanged = r; setTimeout(r,800); });
@@ -601,7 +715,14 @@ els.copyBtn.addEventListener('click', async () => {
   }
 });
 els.closeExport.addEventListener('click', ()=>els.exportModal.classList.remove('show'));
+els.backToPicker.addEventListener('click', ()=>{
+  els.exportModal.classList.remove('show');
+  showPicker();
+});
 document.addEventListener('gesturestart', e=>e.preventDefault());
+
+// 初始化卡片选择器
+renderCardPicker();
 </script>
 </body>
 </html>
