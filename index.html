@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1a1d24">
-<title>AI 英语陪练 v3.3</title>
+<title>AI 英语陪练 v3.5</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;font-family:-apple-system,"PingFang SC",sans-serif}
@@ -87,10 +87,6 @@
   .card-pick .name{font-size:12px;color:#c0c8d8;font-weight:700}
   .card-pick .id{font-size:10px;color:#6b7280;font-family:monospace}
   .card-pick .status{position:absolute;top:6px;right:8px;font-size:14px}
-  .card-pick .status.mastered{color:#fbbf24}
-  .card-pick .status.good{color:#10b981}
-  .card-pick .status.review{color:#f59e0b}
-  .card-pick .status.retry{color:#ef4444}
   #start-btn{padding:16px 48px;font-size:19px;font-weight:700;border-radius:999px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(16,185,129,.35);margin-top:6px}
   #start-btn:active{transform:scale(.96)}
 
@@ -107,7 +103,7 @@
 </head>
 <body>
 
-<div class="version-badge">v3.3</div>
+<div class="version-badge">v3.5</div>
 
 <div id="image-area" class="stage-listen">
   <div id="stage-badge">🎧 Listen</div>
@@ -169,7 +165,7 @@
 
 <script>
 /* ============================================================
- * 1) 归一化 + 关键词匹配
+ * 1) 归一化 + 关键词匹配（含人名豁免）
  * ============================================================ */
 const CONTRACTIONS = [
   [/\bi'm\b/g,'i am'],[/\bit's\b/g,'it is'],[/\bthat's\b/g,'that is'],
@@ -185,14 +181,10 @@ function normalize(s){
   return t.replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
 }
 const WORD_SYNONYMS = {
-  // 英美差异
   mom:'mum', mommy:'mummy', granny:'grandma', nana:'grandma',
-  // 常见 ASR 变体
   yeah:'yes', yep:'yes', yup:'yes', ya:'yes', ok:'yes', okay:'yes',
-  nope:'no', nah:'no',
-  hi:'hello', hey:'hello',
+  nope:'no', nah:'no', hi:'hello', hey:'hello',
   thanks:'thank', thankyou:'thank',
-  // 数字归一（阿拉伯数字 → 英文）
   '1':'one','2':'two','3':'three','4':'four','5':'five',
   '6':'six','7':'seven','8':'eight','9':'nine','10':'ten',
   '11':'eleven','12':'twelve','13':'thirteen','14':'fourteen','15':'fifteen',
@@ -201,15 +193,45 @@ const WORD_SYNONYMS = {
 function canonWord(w){ return WORD_SYNONYMS[w] || w; }
 function canonText(s){ return normalize(s).split(' ').map(canonWord).join(' '); }
 
-function matchKeywords(childSaid, keywords){
-  if(!keywords || !keywords.length) return { all:false, some:false, matched:0, total:0 };
-  const said = canonText(childSaid);
-  let matched = 0;
-  for(const kw of keywords){
-    const k = canonText(kw);
-    if(said.includes(k)) matched++;
+const TITLES = [
+  'mum','mom','mummy','mommy','dad','daddy',
+  'grandma','grandpa','granny','grandmother','grandfather',
+  'brother','sister','teacher','friend','uncle','aunt',
+  'miss','mr','mrs','ms','sir','madam',
+];
+function isNameKeyword(kw, childText){
+  if(!childText) return false;
+  if(TITLES.includes(kw.toLowerCase())) return false;
+  const words = String(childText).split(/\s+/);
+  for(let i = 1; i < words.length; i++){
+    const raw = words[i].replace(/[^a-zA-Z]/g, '');
+    if(raw.length < 2) continue;
+    if(raw.toLowerCase() === kw.toLowerCase() && raw[0] === raw[0].toUpperCase()){
+      return true;
+    }
   }
-  return { all: matched === keywords.length, some: matched > 0, matched, total: keywords.length };
+  return false;
+}
+function matchKeywords(childSaid, keywords, childText){
+  if(!keywords || !keywords.length) return { all:true, some:true, matched:0, total:0, required:0, requiredMatched:0 };
+  const said = canonText(childSaid);
+  let matched = 0, required = 0, requiredMatched = 0;
+  for(const kw of keywords){
+    const isName = isNameKeyword(kw, childText || '');
+    const k = canonText(kw);
+    const hit = said.includes(k);
+    if(hit) matched++;
+    if(!isName){
+      required++;
+      if(hit) requiredMatched++;
+    }
+  }
+  return {
+    all: requiredMatched === required,
+    some: matched > 0,
+    matched, total: keywords.length,
+    required, requiredMatched,
+  };
 }
 
 /* ============================================================
@@ -304,9 +326,9 @@ const CARDS = [
           { speaker:'AI', text:'Welcome to China!' },
           { speaker:'Child', text:'Thank you.', keywords:['thank'] },
           { speaker:'AI', text:'This is my friend, Alice.' },
-          { speaker:'Child', text:'Sorry. Nice to meet you, Alice.', keywords:['nice','meet'] },
-          { speaker:'AI', text:'Nice to meet you.' },
-          { speaker:'Child', text:'Nice to meet you.', keywords:['nice','meet'] }
+          { speaker:'Child', text:'Nice to meet you, Alice.', keywords:['nice','meet'] },
+          { speaker:'AI', text:"What's your name?" },
+          { speaker:'Child', text:'My name is Shenshen.', keywords:['name','shenshen'] }
         ]
       }
     ]
@@ -409,7 +431,7 @@ const CARDS = [
 ];
 
 /* ============================================================
- * 4) rounds 生成（方案 A + master 预热）
+ * 4) rounds 生成
  * ============================================================ */
 function buildRounds(card){
   const rounds = [];
@@ -474,7 +496,7 @@ function buildRounds(card){
 }
 
 /* ============================================================
- * 5) 进度存储（localStorage）
+ * 5) 进度存储
  * ============================================================ */
 const PROGRESS_KEY = 'ai_english_progress_v1';
 function loadProgress(){
@@ -616,6 +638,16 @@ function listenOnce(timeoutMs=7000){
 }
 const ASR_ERRORS = ['no-asr','no-speech','not-allowed','service-not-allowed','timeout','start-fail','aborted','init-fail','asr-error'];
 
+async function requestMicPermission(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
 /* ============================================================
  * 8) listen
  * ============================================================ */
@@ -743,14 +775,14 @@ async function runSayRound(r){
       break;
     }
     const said = res.text || '';
-    const m = matchKeywords(said, r.keywords);
-    dbg(`${r.stage} | said="${said}" | matched ${m.matched}/${m.total}`);
+    const m = matchKeywords(said, r.keywords, r.childText);
+    dbg(`${r.stage} | said="${said}" | req ${m.requiredMatched}/${m.required} | all ${m.matched}/${m.total}`);
 
     state.history.push({
       round: state.roundIdx+1, stage: r.stage,
       aiText: r.aiText, childText: r.childText,
       said, result: m.all ? 'correct' : (m.some ? 'partial' : 'wrong'),
-      matched: m.matched, total: m.total,
+      matched: m.requiredMatched, total: m.required,
       source: res.source || 'asr',
       asr_alts: (res.alts||[]).join(' | '),
     });
@@ -786,7 +818,7 @@ async function aiSayFeedback(text){
 }
 
 /* ============================================================
- * 11) 等孩子说话
+ * 11) 等孩子说话（含麦克风权限恢复）
  * ============================================================ */
 function waitChild(){
   els.mic.disabled = false;
@@ -796,6 +828,7 @@ function waitChild(){
   setAvatarActive('child');
 
   let missCount = 0;
+  let notAllowedCount = 0;
   return new Promise(async resolve=>{
     while(true){
       const res = await new Promise(r=>{
@@ -838,10 +871,23 @@ function waitChild(){
       if(isErr){
         missCount++;
         dbg(`❌ ASR: ${res.error||'empty'} | miss ${missCount}`);
+
         if(res.error === 'not-allowed' || res.error === 'service-not-allowed'){
-          showToast('麦克风权限被拒。请用键盘输入。', 4000);
-          els.textInputRow.classList.add('show');
-          els.textInput.focus();
+          notAllowedCount++;
+          if(notAllowedCount === 1){
+            dbg('⚠️ 麦克风异常，尝试自动恢复...');
+            showToast('正在重新连接麦克风…', 2000);
+            await requestMicPermission();
+            await sleep(600);
+            els.mic.disabled = false;
+            els.mic.classList.add('listening');
+            els.mic.classList.remove('recording');
+            continue;
+          } else {
+            showToast('麦克风暂时不可用，请用键盘输入', 4000);
+            els.textInputRow.classList.add('show');
+            els.textInput.focus();
+          }
         } else if(missCount >= 3){
           showToast('连续没听清，请用键盘输入', 3000);
           els.textInputRow.classList.add('show');
@@ -888,7 +934,7 @@ function buildExportText(){
   const total = state.history.filter(h=>h.result!=='skipped').length;
   lines.push(`正确: ${correct} / ${total}`);
   lines.push('');
-  lines.push('round | stage | aiText | childText | said | result | matched/total | source | asr_alts');
+  lines.push('round | stage | aiText | childText | said | result | reqMatched/req | source | asr_alts');
   for(const h of state.history){
     lines.push([
       h.round, h.stage, h.aiText, h.childText, h.said, h.result,
@@ -911,7 +957,6 @@ async function endCard(){
   setAvatarActive(null);
   await sleep(500);
 
-  // 存进度
   const scored = state.history.filter(h=>h.result !== 'skipped');
   const correct = scored.filter(h=>h.result === 'correct').length;
   updateCardProgress(CARD.cardId, correct, scored.length);
@@ -927,13 +972,12 @@ async function endCard(){
 }
 
 /* ============================================================
- * 13) 卡片选择器（分组 + 进度标识）
+ * 13) 卡片选择器
  * ============================================================ */
 let currentGroup = 0;
 const GROUP_SIZE = 5;
 
 function renderCardPicker(){
-  // 分组 tab
   const groups = {};
   CARDS.forEach((c, idx)=>{
     const g = Math.floor(idx / GROUP_SIZE);
@@ -955,7 +999,6 @@ function renderCardPicker(){
     });
   }
 
-  // 网格
   els.cardGrid.innerHTML = '';
   const items = groups[currentGroup] || [];
   items.forEach(({card, idx})=>{
@@ -1012,7 +1055,7 @@ async function start(){
     await new Promise(r=>{ speechSynthesis.onvoiceschanged = r; setTimeout(r,800); });
   }
 
-  dbg('✅ v3.3 ready');
+  dbg('✅ v3.5 ready');
   setStageVisual('listen');
   els.subtitle.textContent = 'Hello!';
   setAvatarActive('ai');
@@ -1032,7 +1075,7 @@ els.copyBtn.addEventListener('click', async () => {
     showToast('已复制');
   }
 });
-els.closeExport.addEventListener('click', ()=>els.exportModal.classList.remove('show'));
+els.closeExport.addEventListener('click',()=>els.exportModal.classList.remove('show'));
 document.addEventListener('gesturestart', e=>e.preventDefault());
 
 renderCardPicker();
