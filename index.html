@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1a1d24">
-<title>AI 英语陪练 v3.1</title>
+<title>AI 英语陪练 v3.2</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;font-family:-apple-system,"PingFang SC",sans-serif}
@@ -24,7 +24,6 @@
   .corner{position:absolute;font-size:8vmin;opacity:.85}
   .corner.tl{top:4%;left:6%}.corner.tr{top:4%;right:6%}
 
-  /* 角色头像（AI + 孩子），高亮切换 */
   #role-avatars{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:24px;align-items:center}
   .avatar{display:flex;flex-direction:column;align-items:center;gap:4px;opacity:.4;transition:all .3s;transform:scale(.9)}
   .avatar.active{opacity:1;transform:scale(1.15)}
@@ -32,18 +31,17 @@
   .avatar.active .face{background:#fff;box-shadow:0 0 0 4px rgba(16,185,129,.6),0 4px 12px rgba(0,0,0,.2)}
   .avatar .who{font-size:11px;font-weight:700;color:#1a1d24;background:rgba(255,255,255,.9);padding:2px 8px;border-radius:999px}
 
-  /* 阶段徽章 */
-  #stage-badge{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:14px;font-weight:800;color:#fff;padding:6px 18px;border-radius:999px;letter-spacing:2px;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .3s}
+  #stage-badge{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:15px;font-weight:800;color:#fff;padding:6px 20px;border-radius:999px;letter-spacing:1px;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .3s}
   #stage-badge.show{opacity:1}
   #stage-badge.listen{background:#d97706}
   #stage-badge.repeat{background:#10b981}
   #stage-badge.speak {background:#3b82f6}
   #stage-badge.master{background:#8b5cf6}
 
-  #subtitle-area{background:#232733;padding:12px 16px 8px;min-height:110px;display:flex;flex-direction:column;justify-content:center;gap:6px;max-height:38vh;overflow-y:auto}
+  #subtitle-area{background:#232733;padding:12px 16px 8px;min-height:120px;display:flex;flex-direction:column;justify-content:center;gap:6px;max-height:40vh;overflow-y:auto}
   #role-line{font-size:12px;color:#6b7280;font-weight:600;letter-spacing:.5px}
   #subtitle{font-size:22px;font-weight:700;line-height:1.3;color:#eaf2ff;min-height:28px}
-  #child-line{font-size:17px;color:#7bd9a3;font-weight:600;min-height:22px}
+  #child-line{font-size:22px;color:#7bd9a3;font-weight:800;min-height:28px;line-height:1.3}
 
   #dialogue-list{display:flex;flex-direction:column;gap:6px}
   .dline{display:flex;gap:10px;align-items:baseline;padding:5px 8px;border-radius:8px;transition:all .25s;opacity:.35}
@@ -101,10 +99,10 @@
 </head>
 <body>
 
-<div class="version-badge">v3.1</div>
+<div class="version-badge">v3.2</div>
 
 <div id="image-area" class="stage-listen">
-  <div id="stage-badge">跟读</div>
+  <div id="stage-badge">🎧 Listen</div>
   <div id="scene">🌅👩‍🦰</div>
   <div id="role-avatars">
     <div class="avatar" id="avatar-ai">
@@ -153,7 +151,7 @@
 </div>
 
 <div id="start-overlay">
-  <h1>AI 英语陪练 v3.1</h1>
+  <h1>AI 英语陪练 v3.2</h1>
   <p>选一张卡，开始上课。<br><br>
   <b>iPhone 用户</b>：必须用 <b>Safari</b> 打开。<br>
   第一次按 🎤 时会弹麦克风权限，点允许。</p>
@@ -206,9 +204,9 @@ const FEEDBACK = {
     'Fantastic!','Awesome!','Great job!','Nice work!',
     'Good work!','Wonderful!'
   ],
-  partial: ['Almost! Try again.', 'Good try. Listen again.'],
-  wrong:   ["Let's listen again.", "Let's try again."],
-  downgrade: ["Let's say it together.", 'Your turn.', 'Now you say it.'],
+  // 新规则：答错统一用这两句
+  tryAgain: 'Almost! Try again.',
+  together: "Let's say it together.",
 };
 let correctIdx = 0;
 function pickCorrect(){
@@ -216,8 +214,6 @@ function pickCorrect(){
   correctIdx++;
   return p;
 }
-function pickPartial(){ return FEEDBACK.partial[Math.floor(Math.random()*FEEDBACK.partial.length)]; }
-function pickWrong(){ return FEEDBACK.wrong[Math.floor(Math.random()*FEEDBACK.wrong.length)]; }
 
 /* ============================================================
  * 3) 卡片数据（card_01）
@@ -270,18 +266,20 @@ const CARD_01 = {
 const CARDS = [CARD_01];
 
 /* ============================================================
- * 4) rounds 生成
+ * 4) rounds 生成（方案 A + master 预热）
  * ============================================================ */
 function buildRounds(card){
   const rounds = [];
   let r = 0;
   const scene1 = card.scenes[0];
 
+  // 1) listen
   rounds.push({
     round: ++r, stage:'listen', scene: scene1,
     microphone: false, demoDialogue: scene1.dialogue,
   });
 
+  // 2) repeat
   for(let i=0; i<scene1.dialogue.length; i++){
     const line = scene1.dialogue[i];
     if(line.speaker !== 'Child') continue;
@@ -296,6 +294,7 @@ function buildRounds(card){
     });
   }
 
+  // 3) speak
   for(let i=0; i<scene1.dialogue.length; i++){
     const line = scene1.dialogue[i];
     if(line.speaker !== 'Child') continue;
@@ -310,8 +309,16 @@ function buildRounds(card){
     });
   }
 
+  // 4) master：每个后续场景：先 warmup，再逐句
   for(let s=1; s<card.scenes.length; s++){
     const scene = card.scenes[s];
+    // warmup round
+    rounds.push({
+      round: ++r, stage:'master-warmup', scene: scene,
+      microphone: false, demoDialogue: scene.dialogue,
+      sceneIndex: s+1,
+    });
+    // 逐句
     for(let i=0; i<scene.dialogue.length; i++){
       const line = scene.dialogue[i];
       if(line.speaker !== 'Child') continue;
@@ -381,16 +388,29 @@ function renderScene(scene){
   els.avatarAI.querySelector('.face').textContent = scene.aiEmoji;
 }
 function setStageVisual(stage){
-  els.imageArea.className = `stage-${stage}`;
-  els.stageBadge.className = stage + ' show';
-  const map = { listen:'听一听', repeat:'跟读', speak:'主动说', master:'掌握' };
-  els.stageBadge.textContent = map[stage] || '';
+  const clsMap = {
+    'listen':'listen',
+    'repeat':'repeat',
+    'speak':'speak',
+    'master':'master',
+    'master-warmup':'master',
+  };
+  const cls = clsMap[stage] || stage;
+  els.imageArea.className = `stage-${cls}`;
+  els.stageBadge.className = `${cls} show`;
+  const labelMap = {
+    listen:'🎧 Listen',
+    repeat:'🔁 Repeat',
+    speak:'💬 Speak',
+    master:'⭐ Master',
+    'master-warmup':'⭐ New scene',
+  };
+  els.stageBadge.textContent = labelMap[stage] || '';
 }
 const setRoundDisplay = () => {
   els.roundInd.textContent = `ROUND ${state.roundIdx+1}/${ROUNDS.length}`;
 };
 function setAvatarActive(who){
-  // who: 'ai' | 'child' | null
   els.avatarAI.classList.toggle('active', who === 'ai');
   els.avatarChild.classList.toggle('active', who === 'child');
 }
@@ -443,7 +463,7 @@ const ASR_ERRORS = ['no-asr','no-speech','not-allowed','service-not-allowed','ti
  * ============================================================ */
 async function runListenRound(r){
   setStageVisual('listen');
-  els.roleLine.textContent = '听一听  ·  AI 演两个角色';
+  els.roleLine.textContent = 'Listen  ·  AI 演两个角色';
   els.subtitle.textContent = '';
   els.childLine.textContent = '';
   els.dialogueList.style.display = 'flex';
@@ -466,7 +486,7 @@ async function runListenRound(r){
     const isAI = line.speaker === 'AI';
     setAvatarActive(isAI ? 'ai' : 'child');
     await speak(line.text, isAI ? PITCH_AI : PITCH_CHILD);
-    await sleep(500); // 句间停顿 500ms
+    await sleep(500);
   }
   lines.forEach(l => l.classList.remove('active'));
   setAvatarActive(null);
@@ -485,20 +505,72 @@ async function runListenRound(r){
 }
 
 /* ============================================================
- * 8) repeat / speak / master
+ * 8) master-warmup 阶段
+ * Scene X. → 完整演绎新场景 → Let's start!
+ * ============================================================ */
+async function runMasterWarmupRound(r){
+  setStageVisual('master-warmup');
+  els.roleLine.textContent = `New scene  ·  ${r.scene.aiEmoji} ${r.scene.aiRole}`;
+  els.subtitle.textContent = '';
+  els.childLine.textContent = '';
+  els.dialogueList.style.display = 'flex';
+  els.dialogueList.innerHTML = '';
+  const lines = [];
+  for(const line of r.demoDialogue){
+    const d = document.createElement('div');
+    d.className = 'dline';
+    const roleLabel = line.speaker === 'AI' ? `${r.scene.aiEmoji} ${r.scene.aiRole}` : '👧 You';
+    d.innerHTML = `<div class="drole">${roleLabel}</div><div class="dtext">${line.text}</div>`;
+    els.dialogueList.appendChild(d);
+    lines.push(d);
+  }
+
+  // Step 1: Scene X.
+  els.subtitle.textContent = `Scene ${r.sceneIndex}.`;
+  setAvatarActive('ai');
+  await speak(`Scene ${r.sceneIndex}.`, PITCH_AI);
+  await sleep(500);
+
+  // Step 2: 完整演绎
+  for(let i=0; i<r.demoDialogue.length; i++){
+    lines.forEach(l => l.classList.remove('active'));
+    lines[i].classList.add('active');
+    lines[i].scrollIntoView({behavior:'smooth', block:'center'});
+    const line = r.demoDialogue[i];
+    const isAI = line.speaker === 'AI';
+    setAvatarActive(isAI ? 'ai' : 'child');
+    await speak(line.text, isAI ? PITCH_AI : PITCH_CHILD);
+    await sleep(500);
+  }
+  lines.forEach(l => l.classList.remove('active'));
+  setAvatarActive(null);
+
+  // Step 3: Let's start!
+  els.subtitle.textContent = "Let's start!";
+  setAvatarActive('ai');
+  await speak("Let's start!", PITCH_AI);
+  setAvatarActive(null);
+  await sleep(400);
+
+  els.dialogueList.style.display = 'none';
+}
+
+/* ============================================================
+ * 9) repeat / speak / master（都显示完整句）
  * ============================================================ */
 const STAGE_MIC_CAPTION = {
-  repeat: '🎤 跟读一下',
-  speak:  '🎤 自己说',
-  master: '🎤 换场景挑战',
+  repeat: '🎤 Repeat after me',
+  speak:  '🎤 Your turn',
+  master: '🎤 Your turn',
 };
 
 async function runSayRound(r){
-  const showChildText = (r.stage === 'repeat');
   setStageVisual(r.stage);
-  els.roleLine.textContent = `${els.stageBadge.textContent}  ·  ${r.aiEmoji} ${r.aiRole}`;
+  const labelMap = { repeat:'🔁 Repeat', speak:'💬 Speak', master:'⭐ Master' };
+  els.roleLine.textContent = `${labelMap[r.stage] || ''}  ·  ${r.aiEmoji} ${r.aiRole}`;
   els.subtitle.textContent = r.aiText;
-  els.childLine.textContent = showChildText ? `👧 你说：${r.childText}` : '';
+  // 全部阶段显示完整句
+  els.childLine.textContent = `👧 你说：${r.childText}`;
   els.continueBtn.style.display = 'none';
   els.micRow.style.display = 'flex';
   els.micActions.style.display = 'flex';
@@ -506,7 +578,6 @@ async function runSayRound(r){
   els.mic.textContent = '🎤';
   els.mic.disabled = true;
 
-  // AI 说一句（高亮 AI 头像）
   setAvatarActive('ai');
   await speak(r.aiText, PITCH_AI);
   setAvatarActive(null);
@@ -537,32 +608,22 @@ async function runSayRound(r){
     });
 
     if(m.all){
-      const fb = pickCorrect();
       setAvatarActive('ai');
-      await aiSayFeedback(fb);
+      await aiSayFeedback(pickCorrect());
       setAvatarActive(null);
       break;
-    } else if(m.some){
-      attempts++;
-      if(attempts >= 3){
-        setAvatarActive('ai');
-        await aiSayFeedback(`${FEEDBACK.downgrade[0]} ${r.childText}`);
-        setAvatarActive(null);
-        break;
-      } else {
-        setAvatarActive('ai');
-        await aiSayFeedback(pickPartial());
-        setAvatarActive(null);
-      }
     } else {
       attempts++;
       setAvatarActive('ai');
       if(attempts === 1){
-        await aiSayFeedback(pickWrong());
+        // 第1次：Almost! Try again. —— 屏幕已显示完整句
+        await aiSayFeedback(FEEDBACK.tryAgain);
       } else if(attempts === 2){
-        await aiSayFeedback(`${r.childText}. ${FEEDBACK.downgrade[1]}`);
+        // 第2次：Let's say it together. + 带读完整句
+        await aiSayFeedback(`${FEEDBACK.together} ${r.childText}`);
       } else {
-        await aiSayFeedback(`${FEEDBACK.downgrade[0]} ${r.childText}`);
+        // 第3次：再带读一次，跳过
+        await aiSayFeedback(`${FEEDBACK.together} ${r.childText}`);
         setAvatarActive(null);
         break;
       }
@@ -580,7 +641,7 @@ async function aiSayFeedback(text){
 }
 
 /* ============================================================
- * 9) 等孩子说话
+ * 10) 等孩子说话
  * ============================================================ */
 function waitChild(){
   els.mic.disabled = false;
@@ -655,7 +716,7 @@ function waitChild(){
 }
 
 /* ============================================================
- * 10) 主流程
+ * 11) 主流程
  * ============================================================ */
 async function runAll(){
   ROUNDS = buildRounds(CARD);
@@ -669,6 +730,8 @@ async function runAll(){
     }
     if(r.stage === 'listen'){
       await runListenRound(r);
+    } else if(r.stage === 'master-warmup'){
+      await runMasterWarmupRound(r);
     } else {
       await runSayRound(r);
     }
@@ -717,7 +780,7 @@ async function endCard(){
 }
 
 /* ============================================================
- * 11) 卡片选择器
+ * 12) 卡片选择器
  * ============================================================ */
 function renderCardPicker(){
   els.cardGrid.innerHTML = '';
@@ -739,7 +802,7 @@ function renderCardPicker(){
 }
 
 /* ============================================================
- * 12) 启动
+ * 13) 启动
  * ============================================================ */
 async function start(){
   try{
@@ -769,7 +832,7 @@ async function start(){
     await new Promise(r=>{ speechSynthesis.onvoiceschanged = r; setTimeout(r,800); });
   }
 
-  dbg('✅ v3.1 ready');
+  dbg('✅ v3.2 ready');
   setStageVisual('listen');
   els.subtitle.textContent = 'Hello!';
   setAvatarActive('ai');
