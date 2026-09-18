@@ -5,35 +5,77 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#1a1d24">
-<title>AI 英语陪练</title>
+<title>AI 英语陪练 v3.1</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;font-family:-apple-system,"PingFang SC",sans-serif}
   body{background:#1a1d24;color:#fff;display:flex;flex-direction:column;user-select:none}
-  #image-area{flex:1;position:relative;background:linear-gradient(180deg,#ffe9c8 0%,#ffd6a5 60%,#f8b878 100%);display:flex;align-items:center;justify-content:center;overflow:hidden}
-  #scene{font-size:42vmin;line-height:1;filter:drop-shadow(0 8px 16px rgba(0,0,0,.15))}
+  .version-badge{position:fixed;top:8px;right:12px;font-size:11px;color:#6b7280;font-family:monospace;background:#232733;padding:3px 8px;border-radius:6px;z-index:300}
+
+  #image-area{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;transition:background .4s}
+  #image-area.stage-listen{background:linear-gradient(180deg,#ffe9c8 0%,#ffd6a5 60%,#f8b878 100%)}
+  #image-area.stage-repeat{background:linear-gradient(180deg,#d4f5dd 0%,#a8e8bd 60%,#7dd39a 100%)}
+  #image-area.stage-speak {background:linear-gradient(180deg,#d0e8ff 0%,#a8d0f8 60%,#78b0e8 100%)}
+  #image-area.stage-master{background:linear-gradient(180deg,#e8d4ff 0%,#c8a8f0 60%,#a880d8 100%)}
+
+  #scene{font-size:36vmin;line-height:1;filter:drop-shadow(0 8px 16px rgba(0,0,0,.15))}
   #scene.enter{animation:pop .5s ease}
   @keyframes pop{0%{transform:scale(.85);opacity:0}100%{transform:scale(1);opacity:1}}
   .corner{position:absolute;font-size:8vmin;opacity:.85}
   .corner.tl{top:4%;left:6%}.corner.tr{top:4%;right:6%}
-  #subtitle-area{background:#232733;padding:14px 18px 6px;min-height:84px;display:flex;flex-direction:column;justify-content:center;gap:6px}
-  #subtitle{font-size:22px;font-weight:600;line-height:1.35;color:#eaf2ff;min-height:30px}
-  #hint{font-size:15px;color:#9aa4b8;font-weight:500;min-height:20px}
-  #controls{background:#232733;padding:8px 18px 14px;display:flex;flex-direction:column;gap:10px;align-items:center;position:relative}
-  #mic-row{display:flex;gap:14px;align-items:center;justify-content:center}
-  #mic-btn{width:88px;height:88px;border-radius:50%;border:none;background:#3a4050;color:#6b7280;font-size:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+
+  /* 角色头像（AI + 孩子），高亮切换 */
+  #role-avatars{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:24px;align-items:center}
+  .avatar{display:flex;flex-direction:column;align-items:center;gap:4px;opacity:.4;transition:all .3s;transform:scale(.9)}
+  .avatar.active{opacity:1;transform:scale(1.15)}
+  .avatar .face{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+  .avatar.active .face{background:#fff;box-shadow:0 0 0 4px rgba(16,185,129,.6),0 4px 12px rgba(0,0,0,.2)}
+  .avatar .who{font-size:11px;font-weight:700;color:#1a1d24;background:rgba(255,255,255,.9);padding:2px 8px;border-radius:999px}
+
+  /* 阶段徽章 */
+  #stage-badge{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:14px;font-weight:800;color:#fff;padding:6px 18px;border-radius:999px;letter-spacing:2px;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;transition:opacity .3s}
+  #stage-badge.show{opacity:1}
+  #stage-badge.listen{background:#d97706}
+  #stage-badge.repeat{background:#10b981}
+  #stage-badge.speak {background:#3b82f6}
+  #stage-badge.master{background:#8b5cf6}
+
+  #subtitle-area{background:#232733;padding:12px 16px 8px;min-height:110px;display:flex;flex-direction:column;justify-content:center;gap:6px;max-height:38vh;overflow-y:auto}
+  #role-line{font-size:12px;color:#6b7280;font-weight:600;letter-spacing:.5px}
+  #subtitle{font-size:22px;font-weight:700;line-height:1.3;color:#eaf2ff;min-height:28px}
+  #child-line{font-size:17px;color:#7bd9a3;font-weight:600;min-height:22px}
+
+  #dialogue-list{display:flex;flex-direction:column;gap:6px}
+  .dline{display:flex;gap:10px;align-items:baseline;padding:5px 8px;border-radius:8px;transition:all .25s;opacity:.35}
+  .dline.active{opacity:1;background:rgba(16,185,129,.15);transform:translateX(4px)}
+  .dline .drole{font-size:12px;font-weight:700;min-width:62px;color:#9aa4b8}
+  .dline.active .drole{color:#10b981}
+  .dline .dtext{font-size:17px;font-weight:600;color:#eaf2ff;flex:1}
+  .dline.active .dtext{color:#7bd9a3}
+
+  #controls{background:#232733;padding:8px 16px 16px;display:flex;flex-direction:column;gap:8px;align-items:center;position:relative}
+  #mic-row{display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center}
+  #mic-btn{width:84px;height:84px;border-radius:50%;border:none;background:#3a4050;color:#6b7280;font-size:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,.3)}
   #mic-btn:disabled{opacity:.5;cursor:not-allowed}
   #mic-btn.listening{background:#10b981;color:#fff;animation:pulse 1.4s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(16,185,129,.7),0 4px 16px rgba(0,0,0,.3)}70%{box-shadow:0 0 0 22px rgba(16,185,129,0),0 4px 16px rgba(0,0,0,.3)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0),0 4px 16px rgba(0,0,0,.3)}}
   #mic-btn.recording{background:#ef4444;color:#fff;animation:none}
+  #mic-caption{font-size:14px;font-weight:700;color:#c0c8d8;letter-spacing:.5px;min-height:18px}
+
+  #continue-btn{padding:16px 44px;font-size:18px;font-weight:700;border-radius:999px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(16,185,129,.35)}
+  #continue-btn:active{transform:scale(.96)}
+  #continue-btn:disabled{opacity:.4}
+
   .small-btn{padding:8px 14px;border-radius:999px;border:none;background:#3a4050;color:#c0c8d8;font-size:13px;font-weight:600;cursor:pointer}
   .small-btn:active{background:#4a5060}
   #text-input-row{display:none;gap:8px;width:100%;max-width:420px}
   #text-input-row.show{display:flex}
   #text-input{flex:1;padding:12px 16px;border-radius:12px;border:none;background:#181c26;color:#fff;font-size:16px;outline:none}
   #text-submit{padding:12px 20px;border-radius:12px;border:none;background:#10b981;color:#fff;font-weight:700;font-size:14px}
-  #round-indicator{position:absolute;top:10px;right:18px;font-size:12px;color:#6b7280;font-weight:600;letter-spacing:1px}
-  #debug-bar{background:#0f1117;color:#6b7280;font-size:11px;padding:6px 12px;font-family:monospace;line-height:1.5;max-height:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-top:1px solid #232733}
+  #round-indicator{position:absolute;top:8px;right:16px;font-size:11px;color:#6b7280;font-weight:600;letter-spacing:1px}
+
+  #debug-bar{background:#0f1117;color:#6b7280;font-size:11px;padding:6px 12px;font-family:monospace;line-height:1.5;max-height:50px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-top:1px solid #232733}
+
   #start-overlay{position:fixed;inset:0;background:#0f1117;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;z-index:100;padding:24px 20px;text-align:center;overflow-y:auto}
   #start-overlay h1{font-size:26px;font-weight:700;margin-top:8px}
   #start-overlay p{font-size:14px;color:#9aa4b8;line-height:1.6;max-width:360px}
@@ -45,8 +87,10 @@
   .card-pick .id{font-size:10px;color:#6b7280;font-family:monospace}
   #start-btn{padding:16px 48px;font-size:19px;font-weight:700;border-radius:999px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;cursor:pointer;box-shadow:0 8px 24px rgba(16,185,129,.35)}
   #start-btn:active{transform:scale(.96)}
-  #toast{position:fixed;bottom:200px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.88);color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center;line-height:1.5}
+
+  #toast{position:fixed;bottom:180px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.88);color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;max-width:90vw;text-align:center;line-height:1.5;z-index:50}
   #toast.show{opacity:1}
+
   #export-modal{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;flex-direction:column;padding:20px;z-index:200;gap:12px}
   #export-modal.show{display:flex}
   #export-modal h3{font-size:18px}
@@ -57,18 +101,37 @@
 </head>
 <body>
 
-<div id="image-area">
-  <div id="scene">👩‍🦰👋</div>
+<div class="version-badge">v3.1</div>
+
+<div id="image-area" class="stage-listen">
+  <div id="stage-badge">跟读</div>
+  <div id="scene">🌅👩‍🦰</div>
+  <div id="role-avatars">
+    <div class="avatar" id="avatar-ai">
+      <div class="face">👩‍🦰</div>
+      <div class="who" id="avatar-ai-name">Mum</div>
+    </div>
+    <div class="avatar" id="avatar-child">
+      <div class="face">👧</div>
+      <div class="who">You</div>
+    </div>
+  </div>
 </div>
 
 <div id="subtitle-area">
+  <div id="role-line"></div>
   <div id="subtitle">Ready?</div>
-  <div id="hint"></div>
+  <div id="child-line"></div>
+  <div id="dialogue-list" style="display:none"></div>
 </div>
 
 <div id="controls">
-  <div id="round-indicator">ROUND 0/6</div>
-  <div id="mic-row"><button id="mic-btn" disabled>🎤</button></div>
+  <div id="round-indicator">ROUND 0/0</div>
+  <button id="continue-btn" style="display:none;">Continue ▶</button>
+  <div id="mic-row" style="display:none">
+    <button id="mic-btn" disabled>🎤</button>
+    <div id="mic-caption"></div>
+  </div>
   <div id="mic-actions" style="display:none;gap:14px;">
     <button class="small-btn" id="text-mode-btn">⌨️ 键盘输入</button>
     <button class="small-btn" id="skip-btn">⏭️ 跳过</button>
@@ -86,12 +149,11 @@
   <h3>本次成绩（长按复制）</h3>
   <textarea id="export-text" readonly></textarea>
   <button class="modal-btn" id="copy-btn">复制全部</button>
-  <button class="modal-btn" id="back-to-picker" style="background:#3a4050">换一张卡</button>
   <button class="modal-btn secondary" id="close-export">关闭</button>
 </div>
 
 <div id="start-overlay">
-  <h1>AI 英语陪练</h1>
+  <h1>AI 英语陪练 v3.1</h1>
   <p>选一张卡，开始上课。<br><br>
   <b>iPhone 用户</b>：必须用 <b>Safari</b> 打开。<br>
   第一次按 🎤 时会弹麦克风权限，点允许。</p>
@@ -100,259 +162,196 @@
 </div>
 
 <script>
-/* ---------- 规则引擎 ---------- */
+/* ============================================================
+ * 1) 归一化 + 关键词匹配
+ * ============================================================ */
 const CONTRACTIONS = [
   [/\bi'm\b/g,'i am'],[/\bit's\b/g,'it is'],[/\bthat's\b/g,'that is'],
   [/\bwhat's\b/g,'what is'],[/\bdon't\b/g,'do not'],[/\bcan't\b/g,'cannot'],
-  [/\bwon't\b/g,'will not'],[/\blet's\b/g,'let us'],
+  [/\bwon't\b/g,'will not'],[/\blet's\b/g,'let us'],[/\bi've\b/g,'i have'],
 ];
-const SENTENCE_SYNONYMS = {
-  yeah:'yes',yep:'yes',yup:'yes',ya:'yes',ok:'yes',okay:'yes',
-  nope:'no',nah:'no', hi:'hello',hey:'hello',
-};
-const WORD_SYNONYMS = {
-  mom:'mum', mommy:'mummy',
-  yeah:'yes', yep:'yes', yup:'yes', ya:'yes', ok:'yes', okay:'yes',
-  nope:'no', nah:'no',
-  hi:'hello', hey:'hello',
-};
-function canonWord(w){ return WORD_SYNONYMS[w] || w; }
-function canonWords(s){ return s.split(' ').filter(Boolean).map(canonWord); }
 function normalize(s){
   if(!s) return '';
   let t = String(s).toLowerCase().replace(/['']/g,"'");
   for(const [re,rep] of CONTRACTIONS) t = t.replace(re,rep);
   return t.replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
 }
-function canonicalize(s){
-  const n = normalize(s);
-  return SENTENCE_SYNONYMS[n] || n;
-}
-function countWordMatches(eWords,cWords){
-  const pool = cWords.slice(); let m = 0;
-  for(const w of eWords){ const i = pool.indexOf(w); if(i>=0){m++;pool.splice(i,1);} }
-  return m;
-}
-function isOrderedSubset(sub,full){
-  if(!sub.length) return false;
-  let i = 0;
-  for(const w of full){ if(w === sub[i]) i++; if(i === sub.length) return true; }
-  return false;
-}
-function judge(expect, childSaid){
-  const e = canonicalize(expect), c = canonicalize(childSaid);
-  if(!c) return { eval:'silent', ratio:0 };
-  if(c === e) return { eval:'correct', ratio:1 };
-  const eW = canonWords(e), cW = canonWords(c);
-  if(eW.join(' ') === cW.join(' ')) return { eval:'correct', ratio:1 };
-  if(isOrderedSubset(eW,cW)) return { eval:'correct', ratio:1 };
-  const matched = countWordMatches(eW,cW);
-  const ratio = matched / eW.length;
-  if(matched === eW.length - 1 && eW.length >= 2) return { eval:'almost', ratio };
-  if(cW.length === 1 && eW.includes(cW[0])) return { eval:'partial', ratio };
-  if(ratio >= 0.5) return { eval:'partial', ratio };
-  if(cW.length <= 2) return { eval:'unclear', ratio };
-  if(ratio < 0.3) return { eval:'wrong', ratio };
-  return { eval:'partial', ratio };
-}
-function judgeMulti(expect, alts){
-  const valid = (alts || []).filter(a => a && String(a).trim());
-  if(!valid.length) return judge(expect, '');
-  for(const alt of valid){
-    const j = judge(expect, alt);
-    if(j.eval === 'correct') return { ...j, said: alt };
-  }
-  let best = null;
-  for(const alt of valid){
-    const j = judge(expect, alt);
-    const cand = { ...j, said: alt };
-    if(!best || cand.ratio > best.ratio) best = cand;
-  }
-  return best;
-}
-const STAGE_TEMPLATES = {
-  0: ['T01','T02','T03','T04','T08'],
-  1: ['T01','T02','T03','T04','T05','T07','T08'],
-  2: ['T01','T02','T03','T04','T05','T06','T07','T08'],
-  3: ['T01','T02','T03','T04','T05','T06','T07','T08'],
-  4: ['T01','T02','T03','T04','T05','T06','T07','T08'],
+const WORD_SYNONYMS = {
+  mom:'mum', mommy:'mummy', granny:'grandma', nana:'grandma',
+  yeah:'yes', yep:'yes', yup:'yes', ya:'yes', ok:'yes', okay:'yes',
+  nope:'no', nah:'no',
+  hi:'hello', hey:'hello',
 };
-function decide(j, ctx){
-  const stage = ctx.stage;
-  const allowed = STAGE_TEMPLATES[stage] || STAGE_TEMPLATES[0];
-  const ev = j.eval, attempts = ctx.attempts || 0;
-  let template_id = 'T04';
-  if(ev === 'correct'){
-    if(ctx.isAdvancing && ctx.nextQId) template_id = (stage === 0) ? 'T01' : 'T07';
-    else template_id = 'T01';
-  } else if(ev === 'almost' || ev === 'partial'){ template_id = 'T02'; }
-  else if(ev === 'wrong'){ template_id = (attempts >= 2 && allowed.includes('T06')) ? 'T06' : 'T03'; }
-  else if(ev === 'silent'){ template_id = 'T04'; }
-  else if(ev === 'unclear'){ template_id = allowed.includes('T05') ? 'T05' : 'T04'; }
-  if(!allowed.includes(template_id)) template_id = 'T04';
-  return {
-    template_id,
-    next_question_id: (ev === 'correct' && ctx.isAdvancing) ? (ctx.nextQId || '') : '',
-  };
-}
-function compose(template_id, ctx){
-  const p = ctx.praise || 'Good!', exp = ctx.expect || '';
-  const rec = ctx.recast || exp, fw = ctx.focus_word || '';
-  const nq = ctx.next_question || '';
-  switch(template_id){
-    case 'T01': return p;
-    case 'T02': return `${p} ${rec} Say: ${rec}`;
-    case 'T03': return `Try again. Say: ${exp}`;
-    case 'T04': return `Your turn. Say: ${exp}`;
-    case 'T05': return `One more time.`;
-    case 'T06': return `Say: ${fw}`;
-    case 'T07': return `${p} ${nq}`;
-    case 'T08': return `${p} Goodbye!`;
-    default:    return p;
+function canonWord(w){ return WORD_SYNONYMS[w] || w; }
+function canonText(s){ return normalize(s).split(' ').map(canonWord).join(' '); }
+
+function matchKeywords(childSaid, keywords){
+  if(!keywords || !keywords.length) return { all:false, some:false, matched:0, total:0 };
+  const said = canonText(childSaid);
+  let matched = 0;
+  for(const kw of keywords){
+    const k = canonText(kw);
+    if(said.includes(k)) matched++;
   }
+  return { all: matched === keywords.length, some: matched > 0, matched, total: keywords.length };
 }
 
-/* ---------- 图卡数据（9 张） ---------- */
-const CARDS = [
-  {
-    card_id:'card_01a', stage:0, name:'妈妈', emoji:'👩‍🦰👋',
-    decorations:{ tl:'☀️', tr:'🏠' },
-    question_pool:[
-      { id:'Q00', text:'Say: Hello!',         expect:'Hello.',        warmup:true },
-      { id:'Q01', text:'Say: Good morning.',  expect:'Good morning.', type:'repeat'  },
-      { id:'Q02', text:'Who is this?',        expect:'This is Mum.',  type:'answer', core:true },
-      { id:'Q03', text:'Say: I love Mum.',    expect:'I love Mum.',   type:'repeat' },
-      { id:'Q04', text:'Is this Mum?',        expect:'Yes.',          type:'confirm' },
-      { id:'Q05', text:'Say: Goodbye, Mum!',  expect:'Goodbye, Mum!', type:'repeat' },
-    ],
-    rounds:6,
-  },
-  {
-    card_id:'card_01b', stage:0, name:'校车', emoji:'🚌',
-    decorations:{ tl:'☀️', tr:'🏫' },
-    question_pool:[
-      { id:'Q00', text:'Say: Hello!',         expect:'Hello.',         warmup:true },
-      { id:'Q01', text:'Say: Good morning.',  expect:'Good morning.',  type:'repeat' },
-      { id:'Q02', text:"What's this?",        expect:"It's a school bus.", type:'answer', core:true },
-      { id:'Q03', text:"Say: It's a bus.",    expect:"It's a bus.",    type:'repeat' },
-      { id:'Q04', text:'Is this a bus?',      expect:'Yes.',           type:'confirm' },
-      { id:'Q05', text:'Say: Goodbye!',       expect:'Goodbye.',       type:'repeat' },
-    ],
-    rounds:6,
-  },
-  {
-    card_id:'card_01c', stage:0, name:'男孩', emoji:'👦🎒',
-    decorations:{ tl:'☀️', tr:'🏫' },
-    question_pool:[
-      { id:'Q00', text:'Say: Hello!',          expect:'Hello.',         warmup:true },
-      { id:'Q01', text:'Say: Good morning.',   expect:'Good morning.',  type:'repeat' },
-      { id:'Q02', text:'Who is this?',         expect:'This is a boy.', type:'answer', core:true },
-      { id:'Q03', text:'Say: He has a bag.',   expect:'He has a bag.',  type:'repeat' },
-      { id:'Q04', text:'Is this a boy?',       expect:'Yes.',           type:'confirm' },
-      { id:'Q05', text:'Say: Goodbye, boy!',   expect:'Goodbye, boy!',  type:'repeat' },
-    ],
-    rounds:6,
-  },
-  {
-    card_id:'card_02a', stage:0, name:'老师', emoji:'👩‍🏫',
-    decorations:{ tl:'📚', tr:'🏫' },
-    question_pool:[
-      { id:'Q00', text:'Say: Hello!',              expect:'Hello.',             warmup:true },
-      { id:'Q01', text:'Say: Good morning.',       expect:'Good morning.',      type:'repeat' },
-      { id:'Q02', text:'Who is this?',             expect:'This is the teacher.', type:'answer', core:true },
-      { id:'Q03', text:'Say: Hello, teacher.',     expect:'Hello, teacher.',    type:'repeat' },
-      { id:'Q04', text:'Is this the teacher?',     expect:'Yes.',               type:'confirm' },
-      { id:'Q05', text:'Say: Goodbye!',            expect:'Goodbye.',           type:'repeat' },
-    ],
-    rounds:6,
-  },
-  {
-    card_id:'card_02b', stage:0, name:'课桌', emoji:'🪑',
-    decorations:{ tl:'📖', tr:'🏫' },
-    question_pool:[
-      { id:'Q00', text:'Say: Hello!',           expect:'Hello.',          warmup:true },
-      { id:'Q01', text:'Say: Good morning.',    expect:'Good morning.',   type:'repeat' },
-      { id:'Q02', text:"What's this?",          expect:"It's a desk.",    type:'answer', core:true },
-      { id:'Q03', text:"Say: It's my desk.",    expect:"It's my desk.",   type:'repeat' },
-      { id:'Q04', text:'Is this a desk?',       expect:'Yes.',            type:'confirm' },
-      { id:'Q05', text:'Say: Goodbye!',         expect:'Goodbye.',        type:'repeat' },
-    ],
-    rounds:6,
-  },
-  {
-    card_id:'card_02c', stage:0, name:'女孩', emoji:'👧',
-    decorations:{ tl:'☀️', tr:'🌸' },
-    question_pool:[
-      { id:'Q00', text:'Say: Hello!',           expect:'Hello.',           warmup:true },
-      { id:'Q01', text:'Say: Good morning.',    expect:'Good morning.',    type:'repeat' },
-      { id:'Q02', text:'Who is this?',          expect:'This is a girl.',  type:'answer', core:true },
-      { id:'Q03', text:'Say: She is happy.',    expect:'She is happy.',    type:'repeat' },
-      { id:'Q04', text:'Is this a girl?',       expect:'Yes.',             type:'confirm' },
-      { id:'Q05', text:'Say: Goodbye, girl!',   expect:'Goodbye, girl!',   type:'repeat' },
-    ],
-    rounds:6,
-  },
-  {
-    card_id:'card_03a', stage:0, name:'爸爸', emoji:'👨',
-    decorations:{ tl:'🌙', tr:'🏠' },
-    question_pool:[
-      { id:'Q00', text:'Say: Hello!',           expect:'Hello.',           warmup:true },
-      { id:'Q01', text:'Say: Good evening.',    expect:'Good evening.',    type:'repeat' },
-      { id:'Q02', text:'Who is this?',          expect:'This is Dad.',     type:'answer', core:true },
-      { id:'Q03', text:'Say: I love Dad.',      expect:'I love Dad.',      type:'repeat' },
-      { id:'Q04', text:'Is this Dad?',          expect:'Yes.',             type:'confirm' },
-      { id:'Q05', text:'Say: Good night, Dad!', expect:'Good night, Dad!', type:'repeat' },
-    ],
-    rounds:6,
-  },
-  {
-    card_id:'card_03b', stage:0, name:'台灯', emoji:'💡',
-    decorations:{ tl:'🌙', tr:'📖' },
-    question_pool:[
-      { id:'Q00', text:'Say: Hello!',           expect:'Hello.',           warmup:true },
-      { id:'Q01', text:'Say: Good evening.',    expect:'Good evening.',    type:'repeat' },
-      { id:'Q02', text:"What's this?",          expect:"It's a lamp.",     type:'answer', core:true },
-      { id:'Q03', text:'Say: A lamp.',          expect:'A lamp.',          type:'repeat' },
-      { id:'Q04', text:'Is this a lamp?',       expect:'Yes.',             type:'confirm' },
-      { id:'Q05', text:'Say: Good night!',      expect:'Good night!',      type:'repeat' },
-    ],
-    rounds:6,
-  },
-  {
-    card_id:'card_03c', stage:0, name:'沙发', emoji:'🛋️',
-    decorations:{ tl:'🌙', tr:'🏠' },
-    question_pool:[
-      { id:'Q00', text:'Say: Hello!',           expect:'Hello.',           warmup:true },
-      { id:'Q01', text:'Say: Good evening.',    expect:'Good evening.',    type:'repeat' },
-      { id:'Q02', text:"What's this?",          expect:"It's a sofa.",     type:'answer', core:true },
-      { id:'Q03', text:"Say: It's a sofa.",     expect:"It's a sofa.",     type:'repeat' },
-      { id:'Q04', text:'Is this a sofa?',       expect:'Yes.',             type:'confirm' },
-      { id:'Q05', text:'Say: Good night!',      expect:'Good night!',      type:'repeat' },
-    ],
-    rounds:6,
-  },
-];
+/* ============================================================
+ * 2) 反馈池
+ * ============================================================ */
+const FEEDBACK = {
+  correct: [
+    'Good job!','Great!','Well done!','Perfect!','Nice!',
+    'Excellent!','Very good!',"That's right!",'You did it!',
+    'Fantastic!','Awesome!','Great job!','Nice work!',
+    'Good work!','Wonderful!'
+  ],
+  partial: ['Almost! Try again.', 'Good try. Listen again.'],
+  wrong:   ["Let's listen again.", "Let's try again."],
+  downgrade: ["Let's say it together.", 'Your turn.', 'Now you say it.'],
+};
+let correctIdx = 0;
+function pickCorrect(){
+  const p = FEEDBACK.correct[correctIdx % FEEDBACK.correct.length];
+  correctIdx++;
+  return p;
+}
+function pickPartial(){ return FEEDBACK.partial[Math.floor(Math.random()*FEEDBACK.partial.length)]; }
+function pickWrong(){ return FEEDBACK.wrong[Math.floor(Math.random()*FEEDBACK.wrong.length)]; }
 
+/* ============================================================
+ * 3) 卡片数据（card_01）
+ * ============================================================ */
+const CARD_01 = {
+  cardId:'01',
+  title:'问候与告别',
+  scenes:[
+    {
+      sceneId:'01-1', name:'morning', emoji:'🌅👩‍🦰',
+      decorations:{ tl:'☀️', tr:'🏠' },
+      aiRole:'Mum', aiEmoji:'👩‍🦰',
+      dialogue:[
+        { speaker:'AI',    text:'Good morning!' },
+        { speaker:'Child', text:'Good morning, Mum!', keywords:['good morning','mum'] },
+        { speaker:'AI',    text:'How are you?' },
+        { speaker:'Child', text:"I'm fine, thank you.", keywords:['fine','thank'] },
+        { speaker:'AI',    text:'Goodbye!' },
+        { speaker:'Child', text:'Goodbye!', keywords:['goodbye'] },
+      ]
+    },
+    {
+      sceneId:'01-2', name:'afternoon', emoji:'🌤️👨',
+      decorations:{ tl:'🌤️', tr:'🏠' },
+      aiRole:'Dad', aiEmoji:'👨',
+      dialogue:[
+        { speaker:'AI',    text:'Good afternoon!' },
+        { speaker:'Child', text:'Good afternoon, Dad!', keywords:['good afternoon','dad'] },
+        { speaker:'AI',    text:'How are you?' },
+        { speaker:'Child', text:"I'm fine, thank you.", keywords:['fine','thank'] },
+        { speaker:'AI',    text:'Goodbye!' },
+        { speaker:'Child', text:'Goodbye!', keywords:['goodbye'] },
+      ]
+    },
+    {
+      sceneId:'01-3', name:'evening', emoji:'🌙👵',
+      decorations:{ tl:'🌙', tr:'🏠' },
+      aiRole:'Grandma', aiEmoji:'👵',
+      dialogue:[
+        { speaker:'AI',    text:'Good evening!' },
+        { speaker:'Child', text:'Good evening, Grandma!', keywords:['good evening','grandma'] },
+        { speaker:'AI',    text:'How are you?' },
+        { speaker:'Child', text:"I'm fine, thank you.", keywords:['fine','thank'] },
+        { speaker:'AI',    text:'Goodbye!' },
+        { speaker:'Child', text:'Goodbye!', keywords:['goodbye'] },
+      ]
+    },
+  ]
+};
+const CARDS = [CARD_01];
+
+/* ============================================================
+ * 4) rounds 生成
+ * ============================================================ */
+function buildRounds(card){
+  const rounds = [];
+  let r = 0;
+  const scene1 = card.scenes[0];
+
+  rounds.push({
+    round: ++r, stage:'listen', scene: scene1,
+    microphone: false, demoDialogue: scene1.dialogue,
+  });
+
+  for(let i=0; i<scene1.dialogue.length; i++){
+    const line = scene1.dialogue[i];
+    if(line.speaker !== 'Child') continue;
+    const aiLine = scene1.dialogue[i-1];
+    rounds.push({
+      round: ++r, stage:'repeat', scene: scene1,
+      microphone: true,
+      aiRole: scene1.aiRole, aiEmoji: scene1.aiEmoji,
+      aiText: aiLine ? aiLine.text : '',
+      childRole:'You', childText: line.text,
+      keywords: line.keywords || [],
+    });
+  }
+
+  for(let i=0; i<scene1.dialogue.length; i++){
+    const line = scene1.dialogue[i];
+    if(line.speaker !== 'Child') continue;
+    const aiLine = scene1.dialogue[i-1];
+    rounds.push({
+      round: ++r, stage:'speak', scene: scene1,
+      microphone: true,
+      aiRole: scene1.aiRole, aiEmoji: scene1.aiEmoji,
+      aiText: aiLine ? aiLine.text : '',
+      childRole:'You', childText: line.text,
+      keywords: line.keywords || [],
+    });
+  }
+
+  for(let s=1; s<card.scenes.length; s++){
+    const scene = card.scenes[s];
+    for(let i=0; i<scene.dialogue.length; i++){
+      const line = scene.dialogue[i];
+      if(line.speaker !== 'Child') continue;
+      const aiLine = scene.dialogue[i-1];
+      rounds.push({
+        round: ++r, stage:'master', scene: scene,
+        microphone: true,
+        aiRole: scene.aiRole, aiEmoji: scene.aiEmoji,
+        aiText: aiLine ? aiLine.text : '',
+        childRole:'You', childText: line.text,
+        keywords: line.keywords || [],
+      });
+    }
+  }
+  return rounds;
+}
+
+/* ============================================================
+ * 5) 状态 + UI
+ * ============================================================ */
 let CARD = CARDS[0];
 let selectedCardIndex = 0;
-
-/* ---------- 状态 ---------- */
+let ROUNDS = buildRounds(CARD);
 const state = {
-  phase:'IDLE', round:0, attempts:0,
-  praiseIndex:0, history:[], skipNextQuestion:false,
-  sessionStart:new Date(),
+  roundIdx: 0, attempts: 0, history: [], sessionStart: new Date(),
+  lastScene: null,
 };
 const $ = id => document.getElementById(id);
 const els = {
-  scene:$('scene'), subtitle:$('subtitle'), hint:$('hint'),
-  mic:$('mic-btn'), roundInd:$('round-indicator'),
-  overlay:$('start-overlay'), startBtn:$('start-btn'),
-  toast:$('toast'), imageArea:$('image-area'),
+  scene:$('scene'), subtitle:$('subtitle'), childLine:$('child-line'),
+  roleLine:$('role-line'), dialogueList:$('dialogue-list'),
+  imageArea:$('image-area'), stageBadge:$('stage-badge'),
+  avatarAI:$('avatar-ai'), avatarChild:$('avatar-child'), avatarAIName:$('avatar-ai-name'),
+  mic:$('mic-btn'), micRow:$('mic-row'), micCaption:$('mic-caption'),
+  roundInd:$('round-indicator'), continueBtn:$('continue-btn'),
+  overlay:$('start-overlay'), startBtn:$('start-btn'), toast:$('toast'),
   micActions:$('mic-actions'), textModeBtn:$('text-mode-btn'), skipBtn:$('skip-btn'),
   textInputRow:$('text-input-row'), textInput:$('text-input'), textSubmit:$('text-submit'),
   exportModal:$('export-modal'), exportText:$('export-text'),
   copyBtn:$('copy-btn'), closeExport:$('close-export'),
-  backToPicker:$('back-to-picker'),
   debugBar:$('debug-bar'), cardGrid:$('card-grid'),
 };
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
@@ -363,42 +362,50 @@ function showToast(msg, ms=2600){
   clearTimeout(showToast._t);
   showToast._t = setTimeout(()=>els.toast.classList.remove('show'), ms);
 }
-function setPhase(p){
-  state.phase = p;
-  if(['AI_SPEAK','EVALUATING','FEEDBACK'].includes(p)){
-    els.mic.disabled = true;
-    els.mic.classList.remove('listening','recording');
-  } else if(p === 'WAIT_CHILD'){
-    els.mic.disabled = false;
-    els.mic.classList.add('listening');
-    els.mic.classList.remove('recording');
-  } else if(p === 'RECORDING'){
-    els.mic.disabled = false;
-    els.mic.classList.remove('listening');
-    els.mic.classList.add('recording');
+
+function renderScene(scene){
+  els.scene.textContent = scene.emoji;
+  els.scene.classList.remove('enter');
+  void els.scene.offsetWidth;
+  els.scene.classList.add('enter');
+  document.querySelectorAll('.corner').forEach(c=>c.remove());
+  if(scene.decorations){
+    for(const [pos,em] of Object.entries(scene.decorations)){
+      const d = document.createElement('div');
+      d.className = `corner ${pos}`;
+      d.textContent = em;
+      els.imageArea.appendChild(d);
+    }
   }
+  els.avatarAIName.textContent = scene.aiRole;
+  els.avatarAI.querySelector('.face').textContent = scene.aiEmoji;
 }
-const setSubtitle = t => els.subtitle.textContent = t;
-const setHint     = h => els.hint.innerHTML = h;
+function setStageVisual(stage){
+  els.imageArea.className = `stage-${stage}`;
+  els.stageBadge.className = stage + ' show';
+  const map = { listen:'听一听', repeat:'跟读', speak:'主动说', master:'掌握' };
+  els.stageBadge.textContent = map[stage] || '';
+}
 const setRoundDisplay = () => {
-  els.roundInd.textContent = `ROUND ${Math.min(state.round+1, CARD.rounds)}/${CARD.rounds}`;
+  els.roundInd.textContent = `ROUND ${state.roundIdx+1}/${ROUNDS.length}`;
 };
-function pickPraise(stage){
-  const pool = stage===0
-    ? ['Good!','Great!','Nice!']
-    : ['Good!','Great!','Nice!','Good job!','Very good!'];
-  const p = pool[state.praiseIndex % pool.length];
-  state.praiseIndex++;
-  return p;
+function setAvatarActive(who){
+  // who: 'ai' | 'child' | null
+  els.avatarAI.classList.toggle('active', who === 'ai');
+  els.avatarChild.classList.toggle('active', who === 'child');
 }
 
-/* ---------- 语音 ---------- */
-function speak(text){
-  return new Promise(resolve => {
+/* ============================================================
+ * 6) 语音（pitch 0.9 / 1.5）
+ * ============================================================ */
+const PITCH_AI = 0.9;
+const PITCH_CHILD = 1.5;
+function speak(text, pitch=1.0){
+  return new Promise(resolve=>{
     if(!text) return resolve();
     try{ speechSynthesis.cancel(); }catch(e){}
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.05;
+    u.lang = 'en-US'; u.rate = 0.85; u.pitch = pitch;
     const vs = speechSynthesis.getVoices();
     const v = vs.find(x=>/en-US/i.test(x.lang) && /Google|Samantha|Aria|Zira|Ava/i.test(x.name))
            || vs.find(x=>/en/i.test(x.lang));
@@ -415,12 +422,8 @@ function listenOnce(timeoutMs=7000){
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if(!SR) return resolve({ text:'', alts:[], error:'no-asr' });
     let rec;
-    try { rec = new SR(); }
-    catch(e){ return resolve({ text:'', alts:[], error:'init-fail' }); }
-    rec.lang = 'en-US';
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.maxAlternatives = 3;
+    try{ rec = new SR(); }catch(e){ return resolve({ text:'', alts:[], error:'init-fail' }); }
+    rec.lang = 'en-US'; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 3;
     let finished = false;
     const fin = p => { if(finished) return; finished=true; try{rec.abort()}catch(e){}; resolve(p); };
     rec.onresult = e => {
@@ -435,226 +438,296 @@ function listenOnce(timeoutMs=7000){
 }
 const ASR_ERRORS = ['no-asr','no-speech','not-allowed','service-not-allowed','timeout','start-fail','aborted','init-fail','asr-error'];
 
-/* ---------- 主流程 ---------- */
-const getQ = i => CARD.question_pool[i];
-
-function renderCard(){
-  els.scene.textContent = CARD.emoji;
-  els.scene.classList.remove('enter');
-  void els.scene.offsetWidth;
-  els.scene.classList.add('enter');
-  document.querySelectorAll('.corner').forEach(c=>c.remove());
-  if(CARD.decorations){
-    for(const [pos,em] of Object.entries(CARD.decorations)){
-      const d = document.createElement('div');
-      d.className = `corner ${pos}`;
-      d.textContent = em;
-      els.imageArea.appendChild(d);
-    }
+/* ============================================================
+ * 7) listen 阶段
+ * ============================================================ */
+async function runListenRound(r){
+  setStageVisual('listen');
+  els.roleLine.textContent = '听一听  ·  AI 演两个角色';
+  els.subtitle.textContent = '';
+  els.childLine.textContent = '';
+  els.dialogueList.style.display = 'flex';
+  els.dialogueList.innerHTML = '';
+  const lines = [];
+  for(const line of r.demoDialogue){
+    const d = document.createElement('div');
+    d.className = 'dline';
+    const roleLabel = line.speaker === 'AI' ? `${r.scene.aiEmoji} ${r.scene.aiRole}` : '👧 You';
+    d.innerHTML = `<div class="drole">${roleLabel}</div><div class="dtext">${line.text}</div>`;
+    els.dialogueList.appendChild(d);
+    lines.push(d);
   }
-}
-async function aiSay(text, hint=''){
-  setPhase('AI_SPEAK');
-  setSubtitle(text);
-  setHint(hint ? `🔊 ${hint}` : '');
-  await speak(text);
-  await sleep(400);
-}
 
-async function waitChild(){
-  setPhase('WAIT_CHILD');
-  els.micActions.style.display = 'flex';
-  els.textInputRow.classList.remove('show');
-  let missCount = 0;
-  while(true){
-    const res = await new Promise(resolve=>{
-      els.mic.onclick = async () => {
-        els.mic.onclick = null;
-        setPhase('RECORDING');
-        setSubtitle('🎤 Listening...');
-        setHint('说完等一下');
-        dbg('🎤 mic pressed, waiting 300ms...');
-        await sleep(300);
-        dbg('🎤 ASR starting...');
-        const r = await listenOnce();
-        resolve(r);
-      };
-      els.textModeBtn.onclick = () => {
-        els.textInputRow.classList.add('show');
-        els.textInput.focus();
-      };
-      const submitText = () => {
-        const v = els.textInput.value.trim();
-        if(!v) return;
-        els.textInput.value = '';
-        els.mic.onclick = null;
-        resolve({ text: v, alts: [v], source: 'text' });
-      };
-      els.textSubmit.onclick = submitText;
-      els.textInput.onkeydown = e => { if(e.key === 'Enter') submitText(); };
-      els.skipBtn.onclick = () => {
-        els.mic.onclick = null;
-        resolve({ text:'', alts:[], error:'skipped', source:'skip' });
-      };
-    });
-    if(res.source === 'text' || res.source === 'skip'){
-      els.micActions.style.display = 'none';
-      els.textInputRow.classList.remove('show');
-      setPhase('EVALUATING');
-      return res;
-    }
-    const isError = ASR_ERRORS.includes(res.error) || !res.text || !res.text.trim();
-    if(isError){
-      missCount++;
-      dbg(`❌ ASR error: ${res.error||'empty'} | alts: ${(res.alts||[]).join(',')||'(none)'} | miss ${missCount}`);
-      if(res.error === 'not-allowed' || res.error === 'service-not-allowed'){
-        showToast('麦克风权限被拒。请用键盘输入。', 4000);
-        els.textInputRow.classList.add('show');
-        els.textInput.focus();
-      } else if(missCount >= 3){
-        showToast('连续没听清，请用键盘输入', 3000);
-        els.textInputRow.classList.add('show');
-        els.textInput.focus();
-      } else {
-        showToast(`没听清，再说一次（${missCount}/3）`, 2000);
-      }
-      setPhase('WAIT_CHILD');
-      continue;
-    }
-    els.micActions.style.display = 'none';
-    setPhase('EVALUATING');
-    dbg(`✅ ASR: "${res.text}" | alts: ${(res.alts||[]).join(' | ')}`);
-    return res;
+  for(let i=0; i<r.demoDialogue.length; i++){
+    lines.forEach(l => l.classList.remove('active'));
+    lines[i].classList.add('active');
+    lines[i].scrollIntoView({behavior:'smooth', block:'center'});
+    const line = r.demoDialogue[i];
+    const isAI = line.speaker === 'AI';
+    setAvatarActive(isAI ? 'ai' : 'child');
+    await speak(line.text, isAI ? PITCH_AI : PITCH_CHILD);
+    await sleep(500); // 句间停顿 500ms
   }
-}
+  lines.forEach(l => l.classList.remove('active'));
+  setAvatarActive(null);
 
-async function runWarmup(q){
-  await aiSay(q.text, '跟读：Hello.');
-  const res = await waitChild();
-  const said = (res.text || '').trim();
-  if(said){
-    await aiSay(pickPraise(CARD.stage));
-  } else {
-    await aiSay('Hello!');
-  }
-  state.history.push({
-    round: state.round+1, qid:q.id, expect:q.expect, said,
-    eval:'warmup', template:'-', ai_said:'(warmup)', source:'-', asr_alts:'-',
+  els.continueBtn.style.display = 'block';
+  els.continueBtn.disabled = false;
+  els.continueBtn.textContent = 'Continue ▶';
+  await new Promise(resolve=>{
+    els.continueBtn.onclick = () => {
+      els.continueBtn.onclick = null;
+      els.continueBtn.style.display = 'none';
+      resolve();
+    };
   });
+  els.dialogueList.style.display = 'none';
 }
 
-async function runRound(){
-  if(state.round >= CARD.rounds) return endCard();
-  setRoundDisplay();
-  const q = getQ(state.round);
-  state.attempts = 0;
+/* ============================================================
+ * 8) repeat / speak / master
+ * ============================================================ */
+const STAGE_MIC_CAPTION = {
+  repeat: '🎤 跟读一下',
+  speak:  '🎤 自己说',
+  master: '🎤 换场景挑战',
+};
 
-  if(q.warmup){
-    await runWarmup(q);
-    state.round++;
-    return runRound();
-  }
+async function runSayRound(r){
+  const showChildText = (r.stage === 'repeat');
+  setStageVisual(r.stage);
+  els.roleLine.textContent = `${els.stageBadge.textContent}  ·  ${r.aiEmoji} ${r.aiRole}`;
+  els.subtitle.textContent = r.aiText;
+  els.childLine.textContent = showChildText ? `👧 你说：${r.childText}` : '';
+  els.continueBtn.style.display = 'none';
+  els.micRow.style.display = 'flex';
+  els.micActions.style.display = 'flex';
+  els.micCaption.textContent = STAGE_MIC_CAPTION[r.stage] || '';
+  els.mic.textContent = '🎤';
+  els.mic.disabled = true;
 
-  if(state.skipNextQuestion){
-    state.skipNextQuestion = false;
-  } else {
-    await aiSay(q.text, q.type==='repeat' ? `跟读：${q.expect}` : '');
-  }
+  // AI 说一句（高亮 AI 头像）
+  setAvatarActive('ai');
+  await speak(r.aiText, PITCH_AI);
+  setAvatarActive(null);
+  await sleep(300);
 
-  while(state.attempts < 3){
+  let attempts = 0;
+  while(attempts < 3){
     const res = await waitChild();
     if(res.source === 'skip'){
       state.history.push({
-        round: state.round+1, qid:q.id, expect:q.expect, said:'',
-        eval:'skipped', template:'-', ai_said:'(skipped)', source:'skip', asr_alts:'-',
+        round: state.roundIdx+1, stage: r.stage,
+        aiText: r.aiText, childText: r.childText,
+        said:'', result:'skipped', matched:'-', total:'-', source:'skip', asr_alts:'-',
       });
       break;
     }
     const said = res.text || '';
-    const j = judgeMulti(q.expect, res.alts);
-    const nextQ = CARD.question_pool[state.round+1];
-    const isAdvancing = (j.eval === 'correct');
-    const decision = decide(j, {
-      stage: CARD.stage, attempts: state.attempts,
-      isAdvancing, nextQId: nextQ ? nextQ.id : '',
-    });
-    const praise = pickPraise(CARD.stage);
-    const focusWord = normalize(q.expect).split(' ').slice(-1)[0];
-    const aiText = compose(decision.template_id, {
-      praise, expect:q.expect, recast:q.expect,
-      focus_word: focusWord,
-      next_question: nextQ ? nextQ.text : '',
-    });
-    state.history.push({
-      round: state.round+1, qid:q.id, expect:q.expect,
-      said: j.said || said, eval: j.eval,
-      template: decision.template_id, ai_said: aiText,
-      asr_alts: (res.alts||[]).join(' | '),
-      source: res.source || 'asr',
-    });
-    const showHint = ['T02','T03','T04'].includes(decision.template_id)
-      ? `Say: ${q.expect}` : '';
-    await aiSay(aiText, showHint);
+    const m = matchKeywords(said, r.keywords);
+    dbg(`${r.stage} | said="${said}" | matched ${m.matched}/${m.total}`);
 
-    if(j.eval === 'correct'){
-      if(decision.template_id === 'T07') state.skipNextQuestion = true;
+    state.history.push({
+      round: state.roundIdx+1, stage: r.stage,
+      aiText: r.aiText, childText: r.childText,
+      said, result: m.all ? 'correct' : (m.some ? 'partial' : 'wrong'),
+      matched: m.matched, total: m.total,
+      source: res.source || 'asr',
+      asr_alts: (res.alts||[]).join(' | '),
+    });
+
+    if(m.all){
+      const fb = pickCorrect();
+      setAvatarActive('ai');
+      await aiSayFeedback(fb);
+      setAvatarActive(null);
       break;
+    } else if(m.some){
+      attempts++;
+      if(attempts >= 3){
+        setAvatarActive('ai');
+        await aiSayFeedback(`${FEEDBACK.downgrade[0]} ${r.childText}`);
+        setAvatarActive(null);
+        break;
+      } else {
+        setAvatarActive('ai');
+        await aiSayFeedback(pickPartial());
+        setAvatarActive(null);
+      }
     } else {
-      state.attempts++;
-      if(state.attempts >= 3){
-        showToast('我们继续下一题吧');
+      attempts++;
+      setAvatarActive('ai');
+      if(attempts === 1){
+        await aiSayFeedback(pickWrong());
+      } else if(attempts === 2){
+        await aiSayFeedback(`${r.childText}. ${FEEDBACK.downgrade[1]}`);
+      } else {
+        await aiSayFeedback(`${FEEDBACK.downgrade[0]} ${r.childText}`);
+        setAvatarActive(null);
         break;
       }
+      setAvatarActive(null);
     }
   }
-  state.round++;
-  return runRound();
+  els.micRow.style.display = 'none';
+  els.micActions.style.display = 'none';
+}
+
+async function aiSayFeedback(text){
+  els.subtitle.textContent = text;
+  await speak(text, PITCH_AI);
+  await sleep(300);
+}
+
+/* ============================================================
+ * 9) 等孩子说话
+ * ============================================================ */
+function waitChild(){
+  els.mic.disabled = false;
+  els.mic.classList.add('listening');
+  els.mic.classList.remove('recording');
+  els.textInputRow.classList.remove('show');
+  setAvatarActive('child');
+
+  let missCount = 0;
+  return new Promise(async resolve=>{
+    while(true){
+      const res = await new Promise(r=>{
+        els.mic.onclick = async () => {
+          els.mic.onclick = null;
+          els.mic.disabled = true;
+          els.mic.classList.remove('listening');
+          els.mic.classList.add('recording');
+          els.subtitle.textContent = '🎤 Listening...';
+          await sleep(300);
+          const out = await listenOnce();
+          r(out);
+        };
+        els.textModeBtn.onclick = () => {
+          els.textInputRow.classList.add('show');
+          els.textInput.focus();
+        };
+        const submitText = () => {
+          const v = els.textInput.value.trim();
+          if(!v) return;
+          els.textInput.value = '';
+          els.mic.onclick = null;
+          r({ text:v, alts:[v], source:'text' });
+        };
+        els.textSubmit.onclick = submitText;
+        els.textInput.onkeydown = e => { if(e.key==='Enter') submitText(); };
+        els.skipBtn.onclick = () => {
+          els.mic.onclick = null;
+          r({ text:'', alts:[], error:'skipped', source:'skip' });
+        };
+      });
+
+      if(res.source === 'text' || res.source === 'skip'){
+        els.textInputRow.classList.remove('show');
+        setAvatarActive(null);
+        return resolve(res);
+      }
+
+      const isErr = ASR_ERRORS.includes(res.error) || !res.text || !res.text.trim();
+      if(isErr){
+        missCount++;
+        dbg(`❌ ASR: ${res.error||'empty'} | miss ${missCount}`);
+        if(res.error === 'not-allowed' || res.error === 'service-not-allowed'){
+          showToast('麦克风权限被拒。请用键盘输入。', 4000);
+          els.textInputRow.classList.add('show');
+          els.textInput.focus();
+        } else if(missCount >= 3){
+          showToast('连续没听清，请用键盘输入', 3000);
+          els.textInputRow.classList.add('show');
+          els.textInput.focus();
+        } else {
+          showToast(`没听清，再说一次（${missCount}/3）`, 1800);
+        }
+        els.mic.disabled = false;
+        els.mic.classList.add('listening');
+        els.mic.classList.remove('recording');
+        continue;
+      }
+      setAvatarActive(null);
+      return resolve(res);
+    }
+  });
+}
+
+/* ============================================================
+ * 10) 主流程
+ * ============================================================ */
+async function runAll(){
+  ROUNDS = buildRounds(CARD);
+  state.lastScene = null;
+  for(state.roundIdx = 0; state.roundIdx < ROUNDS.length; state.roundIdx++){
+    setRoundDisplay();
+    const r = ROUNDS[state.roundIdx];
+    if(r.scene !== state.lastScene){
+      renderScene(r.scene);
+      state.lastScene = r.scene;
+    }
+    if(r.stage === 'listen'){
+      await runListenRound(r);
+    } else {
+      await runSayRound(r);
+    }
+  }
+  await endCard();
 }
 
 function buildExportText(){
-  const scored = state.history.filter(h=>h.eval !== 'warmup');
-  const correct = scored.filter(h=>h.eval==='correct').length;
   const lines = [];
-  lines.push(`=== ${CARD.card_id} (${CARD.name}) 成绩单 ===`);
+  lines.push(`=== card_${CARD.cardId} (${CARD.title}) 成绩单 ===`);
   lines.push(`日期: ${state.sessionStart.toLocaleString('zh-CN')}`);
-  lines.push(`正确: ${correct} / ${scored.length}`);
+  const correct = state.history.filter(h=>h.result==='correct').length;
+  const total = state.history.filter(h=>h.result!=='skipped').length;
+  lines.push(`正确: ${correct} / ${total}`);
   lines.push('');
-  lines.push('round | qid | expect | said | eval | template | asr_alts | source');
+  lines.push('round | stage | aiText | childText | said | result | matched/total | source | asr_alts');
   for(const h of state.history){
-    lines.push([h.round, h.qid, h.expect, h.said, h.eval, h.template,
-      (h.asr_alts||'').replace(/\n/g,' '), h.source||'asr'].join(' | '));
+    lines.push([
+      h.round, h.stage, h.aiText, h.childText, h.said, h.result,
+      `${h.matched}/${h.total}`, h.source||'asr',
+      (h.asr_alts||'').replace(/\n/g,' ')
+    ].join(' | '));
   }
   return lines.join('\n');
 }
 
 async function endCard(){
-  setPhase('FEEDBACK');
-  await aiSay(`${pickPraise(CARD.stage)} Goodbye!`);
-  setPhase('END');
-
-  const scored = state.history.filter(h=>h.eval !== 'warmup');
-  const correct = scored.filter(h=>h.eval==='correct').length;
-  setSubtitle('🎉 Well done!');
-  setHint(`Correct: ${correct} / ${scored.length}  ·  Tap 📋 to see report`);
-  els.mic.disabled = false;
-  els.mic.classList.remove('listening','recording');
-  els.mic.textContent = '📋';
-  els.mic.onclick = () => {
+  els.stageBadge.classList.remove('show');
+  els.subtitle.textContent = '';
+  els.childLine.textContent = '';
+  els.roleLine.textContent = '';
+  const praise = pickCorrect();
+  els.subtitle.textContent = `${praise} You did it!`;
+  setAvatarActive('ai');
+  await speak(`${praise} You did it!`, PITCH_AI);
+  setAvatarActive(null);
+  await sleep(500);
+  els.subtitle.textContent = `🎉 Card ${CARD.cardId} 完成！`;
+  els.childLine.textContent = '点下方按钮查看成绩单';
+  els.continueBtn.style.display = 'block';
+  els.continueBtn.textContent = '📋 看成绩单';
+  els.continueBtn.onclick = () => {
     els.exportText.value = buildExportText();
     els.exportModal.classList.add('show');
   };
 }
 
-/* ---------- 卡片选择器 ---------- */
+/* ============================================================
+ * 11) 卡片选择器
+ * ============================================================ */
 function renderCardPicker(){
   els.cardGrid.innerHTML = '';
   CARDS.forEach((c, idx)=>{
     const div = document.createElement('div');
     div.className = 'card-pick' + (idx === selectedCardIndex ? ' selected' : '');
     div.innerHTML = `
-      <div class="emoji">${c.emoji}</div>
-      <div class="name">${c.name}</div>
-      <div class="id">${c.card_id.replace('card_','')}</div>
+      <div class="emoji">${c.scenes[0].emoji}</div>
+      <div class="name">${c.title}</div>
+      <div class="id">card_${c.cardId}</div>
     `;
     div.onclick = () => {
       selectedCardIndex = idx;
@@ -664,23 +737,10 @@ function renderCardPicker(){
     els.cardGrid.appendChild(div);
   });
 }
-function showPicker(){
-  els.overlay.style.display = 'flex';
-  renderCardPicker();
-}
-function hidePicker(){
-  els.overlay.style.display = 'none';
-}
-function resetState(){
-  state.round = 0;
-  state.attempts = 0;
-  state.praiseIndex = 0;
-  state.history = [];
-  state.skipNextQuestion = false;
-  state.sessionStart = new Date();
-}
 
-/* ---------- 启动 ---------- */
+/* ============================================================
+ * 12) 启动
+ * ============================================================ */
 async function start(){
   try{
     const u = new SpeechSynthesisUtterance('.');
@@ -688,19 +748,34 @@ async function start(){
     speechSynthesis.speak(u);
   }catch(e){}
 
-  resetState();
-  hidePicker();
-  renderCard();
-  setRoundDisplay();
+  state.roundIdx = 0;
+  state.attempts = 0;
+  state.history = [];
+  state.lastScene = null;
+  state.sessionStart = new Date();
+  correctIdx = 0;
 
-  dbg('✅ 就绪');
+  els.overlay.style.display = 'none';
+  els.micRow.style.display = 'none';
+  els.micActions.style.display = 'none';
+  els.continueBtn.style.display = 'none';
+  els.dialogueList.style.display = 'none';
+  els.dialogueList.innerHTML = '';
+  els.subtitle.textContent = 'Ready?';
+  els.childLine.textContent = '';
+  setAvatarActive(null);
 
   if(speechSynthesis.getVoices().length === 0){
     await new Promise(r=>{ speechSynthesis.onvoiceschanged = r; setTimeout(r,800); });
   }
 
-  await aiSay("Hello!", '跟 AI 老师说英语');
-  await runRound();
+  dbg('✅ v3.1 ready');
+  setStageVisual('listen');
+  els.subtitle.textContent = 'Hello!';
+  setAvatarActive('ai');
+  await speak('Hello!', PITCH_AI);
+  setAvatarActive(null);
+  await runAll();
 }
 
 els.startBtn.addEventListener('click', start);
@@ -715,13 +790,8 @@ els.copyBtn.addEventListener('click', async () => {
   }
 });
 els.closeExport.addEventListener('click', ()=>els.exportModal.classList.remove('show'));
-els.backToPicker.addEventListener('click', ()=>{
-  els.exportModal.classList.remove('show');
-  showPicker();
-});
 document.addEventListener('gesturestart', e=>e.preventDefault());
 
-// 初始化卡片选择器
 renderCardPicker();
 </script>
 </body>
